@@ -1,5 +1,8 @@
 package controllers;
 
+import auth.AuthUtils;
+import auth.JAASConfigs;
+import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,7 +11,12 @@ import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import javax.annotation.Nonnull;
+import javax.inject.Inject;
+import javax.naming.NamingException;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.session.SessionStore;
@@ -21,17 +29,7 @@ import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
-import auth.AuthUtils;
-import auth.JAASConfigs;
-import auth.sso.SsoManager;
 import security.AuthenticationManager;
-
-import javax.annotation.Nonnull;
-import javax.inject.Inject;
-import javax.naming.NamingException;
-
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 
 import static auth.AuthUtils.*;
 import static org.pac4j.core.client.IndirectClient.*;
@@ -116,7 +114,7 @@ public class AuthenticationController extends Controller {
         }
 
         final JsonNode json = request().body().asJson();
-        final String username = json.findPath(USER_NAME).textValue();
+        String username = json.findPath(USER_NAME).textValue();
         final String password = json.findPath(PASSWORD).textValue();
 
         if (StringUtils.isBlank(username)) {
@@ -124,6 +122,9 @@ public class AuthenticationController extends Controller {
                 .put("message", "User name must not be empty.");
             return badRequest(invalidCredsJson);
         }
+
+        // Remove any whitespace from username to prevent cookie errors
+        username = username.replaceAll("\\s+", "");
 
         ctx().session().clear();
 
