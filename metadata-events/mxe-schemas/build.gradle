@@ -27,7 +27,7 @@ build.dependsOn renameNamespace
 task copyMCPSchema {
   dependsOn renameNamespace
   copy {
-    from file('src/mainGeneratedAvroSchema/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
+    from file('src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
     into file('../../metadata-integration/java/datahub-client/src/main/resources')
   }
 }
