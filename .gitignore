@@ -18,6 +18,7 @@
 **/metadata-integration/java/datahub-client/generated
 **/src/testGenerated*
 metadata-events/mxe-registration/src/main/resources/**/*.avsc
+**/metadata-integration/java/datahub-client/src/main/resources/*.avsc
 
 # Java
 .java-version

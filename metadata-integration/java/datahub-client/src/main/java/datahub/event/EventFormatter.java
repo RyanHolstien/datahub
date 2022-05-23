@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import lombok.SneakyThrows;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 
 
 /**
@@ -52,6 +55,21 @@ public class EventFormatter {
     }
     return mcp;
   }
+
+  public GenericRecord convertToGenericRecord(MetadataChangeProposalWrapper mcpw) throws IOException {
+
+    String serializedAspect = StringEscapeUtils.escapeJava(dataTemplateCodec.dataTemplateToString(mcpw.getAspect()));
+    Schema mcpSchema =  new Schema.Parser()
+        .parse(this.getClass().getClassLoader().getResourceAsStream("MetadataChangeProposal.avsc"));
+    GenericRecord genericRecord = new GenericData.Record(mcpSchema);
+    genericRecord.put("entityUrn", mcpw.getEntityUrn());
+    genericRecord.put("aspect", mcpw.getAspect());
+    genericRecord.put("aspectName", mcpw.getAspectName());
+    genericRecord.put("entityType", mcpw.getEntityType());
+    genericRecord.put("changeType", mcpw.getChangeType());
+    return genericRecord;
+  }
+
 
   public enum Format {
     PEGASUS_JSON,

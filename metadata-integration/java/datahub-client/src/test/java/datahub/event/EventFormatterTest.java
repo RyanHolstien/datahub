@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 
+import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 import org.testng.Assert;
 
@@ -45,5 +46,19 @@ public class EventFormatterTest {
         + "\\u2020\\u00A5\\u00A8\\u02C6\\u02C6\\u03C0\\u201C\\u2018\\u00E5\\u00DF\\u2202\\u0192\\u00A9\\u02D9\\u2206"
         + "\\u02DA\\u00AC\\u2026\\u00E6\\u03A9\\u2248\\u00E7\\u221A\\u222B\\u02DC\\u02DC\\u2264\\u2265\\u00E7\"}";
     Assert.assertEquals(content, expectedContent);
+  }
+
+  @Test
+  public void testConvertToGenericRecord() throws IOException {
+    MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
+        .entityType("dataset")
+        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)")
+        .upsert()
+        .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset œ∑´´†¥¨ˆˆπ“‘åß∂ƒ©˙∆˚¬…æΩ≈ç√∫˜˜≤≥ç"))
+        .build();
+
+    EventFormatter eventFormatter = new EventFormatter();
+    GenericRecord mcp = eventFormatter.convertToGenericRecord(mcpw);
+    Assert.assertEquals(mcp.get("entityUrn"), "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)");
   }
 }

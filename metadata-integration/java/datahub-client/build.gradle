@@ -15,13 +15,21 @@ jar.enabled = false // Since we only want to build shadow jars, disabling the re
 dependencies {
 
     implementation project(':metadata-models')
+    compile externalDependency.avro_1_7
+    constraints {
+      implementation('commons-collections:commons-collections:3.2.2') {
+        because 'Vulnerability Issue'
+      }
+    }
     shadow externalDependency.httpAsyncClient // we want our clients to provide this
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.javaxValidation
     implementation externalDependency.springContext
     implementation externalDependency.swaggerAnnotations
+
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
+
     testCompile externalDependency.httpAsyncClient // needed as shadow excludes it
     testCompile externalDependency.mockito
     testCompile externalDependency.mockServer
@@ -29,6 +37,8 @@ dependencies {
 
     swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
+
+compileJava.dependsOn(':metadata-events:mxe-schemas:copyMCPSchema')
 
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
