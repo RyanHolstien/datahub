@@ -24,6 +24,14 @@ task renameNamespace(type: Exec, dependsOn: copyOriginalAvsc) {
 
 build.dependsOn renameNamespace
 
+task copyMCPSchema {
+  dependsOn renameNamespace
+  copy {
+    from file('src/mainGeneratedAvroSchema/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
+    into file('../../metadata-integration/java/datahub-client/src/main/resources')
+  }
+}
+
 clean {
   project.delete('src/main/pegasus')
   project.delete('src/mainGeneratedAvroSchema/avro')
