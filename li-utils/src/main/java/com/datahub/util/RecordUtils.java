@@ -139,6 +139,22 @@ public class RecordUtils {
     return toRecordTemplate(clazz, dataMap);
   }
 
+  @Nonnull
+  public static <T extends RecordTemplate> RecordTemplate constructDefaultRecordTemplate(@Nonnull Class<T> type) {
+    Constructor<T> constructor;
+    try {
+      constructor = type.getConstructor();
+    } catch (NoSuchMethodException e) {
+      throw new ModelConversionException("Unable to find constructor for " + type.getCanonicalName(), e);
+    }
+
+    try {
+      return constructor.newInstance();
+    } catch (Exception e) {
+      throw new ModelConversionException("Failed to invoke constructor for " + type.getCanonicalName(), e);
+    }
+  }
+
   /**
    * Extracts the aspect from an entity value which includes a single aspect.
    *

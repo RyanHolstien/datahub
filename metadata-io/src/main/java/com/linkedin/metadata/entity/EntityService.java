@@ -3,6 +3,11 @@ package com.linkedin.metadata.entity;
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.fge.jsonpatch.JsonPatch;
+import com.github.fge.jsonpatch.JsonPatchException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -47,7 +52,9 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,6 +112,8 @@ public class EntityService {
    * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
    * monotonically increasing version incrementing as usual once the latest version is replaced.
    */
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @Value
   public static class UpdateAspectResult {
@@ -543,6 +552,81 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   /**
+   * Apply patch update to aspect within a single transaction
+   *
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   * @param jsonPatch JsonPatch to apply to the aspect
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time   * @param providedSystemMetadata
+   * @return Details about the new and old version of the aspect
+   */
+  @Nonnull
+  @Deprecated
+  protected UpdateAspectResult patchAspectToLocalDB(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final JsonPatch jsonPatch,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata providedSystemMetadata) {
+
+    return _aspectDao.runInTransactionWithRetry(() -> {
+      final String urnStr = urn.toString();
+      final String aspectName = aspectSpec.getName();
+      EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      if (latest == null) {
+        //TODO: best effort mint
+        RecordTemplate defaultTemplate = RecordUtils.constructDefaultRecordTemplate(aspectSpec.getDataTemplateClass());
+        latest = new EntityAspect();
+        latest.setAspect(aspectName);
+        latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
+        latest.setUrn(urnStr);
+        latest.setVersion(ASPECT_LATEST_VERSION);
+        latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
+      }
+      //TODO: map patch to standard definition before applying, array semantics [] -> /<latest.fieldName.length>
+      String unmodified = jsonPatch.toString();
+      try {
+        JsonNode patchNodes = OBJECT_MAPPER.readTree(unmodified);
+        
+      } catch (JsonProcessingException e) {
+        throw new IllegalStateException(e);
+      }
+
+      long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+      JsonNode latestNode;
+      try {
+        latestNode = OBJECT_MAPPER.readTree(latest.getMetadata());
+        JsonNode updated = jsonPatch.apply(latestNode);
+
+        EntityAspect newValue = new EntityAspect();
+        newValue.setAspect(aspectName);
+        newValue.setMetadata(updated.toString());
+        newValue.setUrn(urnStr);
+        newValue.setVersion(ASPECT_LATEST_VERSION);
+        newValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
+        return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata,
+            latest, nextVersion);
+      } catch (JsonProcessingException | JsonPatchException e) {
+        throw new IllegalStateException(e);
+      }
+    }, DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  //TODO: remove using as reference
+//  private JsonPatch getRawDiff(EntityAspect previousValue, EntityAspect currentValue) {
+//    JsonNode prevNode = OBJECT_MAPPER.nullNode();
+//    try {
+//      if (previousValue.getVersion() != -1) {
+//        prevNode = OBJECT_MAPPER.readTree(previousValue.getMetadata());
+//      }
+//      JsonNode currNode = OBJECT_MAPPER.readTree(currentValue.getMetadata());
+//      return JsonDiff.asJsonPatch(prevNode, currNode);
+//    } catch (JsonProcessingException e) {
+//      throw new IllegalStateException(e);
+//    }
+//  }
+
+  /**
    * Same as ingestAspectToLocalDB but for multiple aspects
    * DO NOT CALL DIRECTLY, USE WRAPPED METHODS TO VALIDATE URN
    */
@@ -729,79 +813,155 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
    * Do not use this method directly for creating new entities, as it DOES NOT create an Entity Key aspect in the DB. Instead,
    * use an Entity Client.
    *
-   * @param metadataChangeProposal the proposal to ingest
+   * @param mcp the proposal to ingest
    * @param auditStamp an audit stamp representing the time and actor proposing the change
    * @return an {@link IngestProposalResult} containing the results
    */
-  public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+  public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp,
       AuditStamp auditStamp) {
 
-    log.debug("entity type = {}", metadataChangeProposal.getEntityType());
-    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
+    log.debug("entity type = {}", mcp.getEntityType());
+    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(mcp.getEntityType());
     log.debug("entity spec = {}", entitySpec);
 
-    Urn entityUrn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
+    Urn entityUrn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
 
-    if (metadataChangeProposal.getChangeType() != ChangeType.UPSERT) {
-      throw new UnsupportedOperationException("Only upsert operation is supported");
+
+    if (!ChangeType.UPSERT.equals(mcp.getChangeType()) && !ChangeType.PATCH.equals(mcp.getChangeType())) {
+      throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
     }
 
-    if (!metadataChangeProposal.hasAspectName() || !metadataChangeProposal.hasAspect()) {
-      throw new UnsupportedOperationException("Aspect and aspect name is required for create and update operations");
-    }
-
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
-
-    if (aspectSpec == null) {
-      throw new RuntimeException(
-          String.format("Unknown aspect %s for entity %s", metadataChangeProposal.getAspectName(),
-              metadataChangeProposal.getEntityType()));
-    }
+    AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
 
     log.debug("aspect spec = {}", aspectSpec);
 
-    RecordTemplate aspect;
-    try {
-      aspect = GenericRecordUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
-          metadataChangeProposal.getAspect().getContentType(), aspectSpec);
-      ValidationUtils.validateOrThrow(aspect);
-    } catch (ModelConversionException e) {
-      throw new RuntimeException(
-          String.format("Could not deserialize %s for aspect %s", metadataChangeProposal.getAspect().getValue(),
-              metadataChangeProposal.getAspectName()));
-    }
-    log.debug("aspect = {}", aspect);
 
-    SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(metadataChangeProposal.getSystemMetadata());
+    SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(mcp.getSystemMetadata());
     systemMetadata.setRegistryName(aspectSpec.getRegistryName());
     systemMetadata.setRegistryVersion(aspectSpec.getRegistryVersion().toString());
 
-    RecordTemplate oldAspect = null;
-    SystemMetadata oldSystemMetadata = null;
-    RecordTemplate newAspect = aspect;
-    SystemMetadata newSystemMetadata = systemMetadata;
+    UpdateAspectResult result = null;
 
     if (!aspectSpec.isTimeseries()) {
-      Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
-      UpdateAspectResult result =
-          wrappedIngestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), ignored -> aspect, auditStamp,
-              systemMetadata);
-      ingestToLocalDBTimer.stop();
-      oldAspect = result.getOldValue();
-      oldSystemMetadata = result.getOldSystemMetadata();
-      newAspect = result.getNewValue();
-      newSystemMetadata = result.getNewSystemMetadata();
-      // Apply retention policies asynchronously if there was an update to existing aspect value
-      if (oldAspect != newAspect && oldAspect != null && _retentionService != null) {
-        _retentionService.applyRetention(entityUrn, aspectSpec.getName(),
-            Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
+      switch (mcp.getChangeType()) {
+        case UPSERT:
+          result = performUpsert(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
+          break;
+        case PATCH:
+          result = performPatch(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
+          break;
+        default:
+          // Should never reach since we throw error above
+          throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
       }
     }
 
-    if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
-      log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", metadataChangeProposal.getAspectName(), entityUrn);
+    // TBD: Still validate new != old for patch? probably
+    boolean didUpdate = emitChangeLog(result, mcp, entityUrn, auditStamp, aspectSpec);
 
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
+    return new IngestProposalResult(entityUrn, didUpdate);
+  }
+
+  private AspectSpec validateAspect(MetadataChangeProposal mcp, EntitySpec entitySpec) {
+    if (!mcp.hasAspectName() || !mcp.hasAspect()) {
+      throw new UnsupportedOperationException("Aspect and aspect name is required for create and update operations");
+    }
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(mcp.getAspectName());
+
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format("Unknown aspect %s for entity %s", mcp.getAspectName(),
+              mcp.getEntityType()));
+    }
+
+    return aspectSpec;
+  }
+
+  private UpdateAspectResult performUpsert(MetadataChangeProposal mcp, AspectSpec aspectSpec, SystemMetadata
+      systemMetadata, Urn entityUrn, AuditStamp auditStamp) {
+    RecordTemplate aspect = convertToRecordTemplate(mcp, aspectSpec);
+    log.debug("aspect = {}", aspect);
+
+    return upsertAspect(aspect, systemMetadata, mcp, entityUrn, auditStamp, aspectSpec);
+  }
+
+  private UpdateAspectResult performPatch(MetadataChangeProposal mcp, AspectSpec aspectSpec, SystemMetadata
+      systemMetadata, Urn entityUrn, AuditStamp auditStamp) {
+    JsonPatch jsonPatch = convertToJsonPatch(mcp);
+    log.debug("patch = {}", jsonPatch);
+
+    return patchAspect(jsonPatch, systemMetadata, mcp, entityUrn, auditStamp, aspectSpec);
+  }
+
+  private RecordTemplate convertToRecordTemplate(MetadataChangeProposal mcp, AspectSpec aspectSpec) {
+    RecordTemplate aspect;
+    try {
+      aspect = GenericRecordUtils.deserializeAspect(mcp.getAspect().getValue(),
+          mcp.getAspect().getContentType(), aspectSpec);
+      ValidationUtils.validateOrThrow(aspect);
+    } catch (ModelConversionException e) {
+      throw new RuntimeException(
+          String.format("Could not deserialize %s for aspect %s", mcp.getAspect().getValue(),
+              mcp.getAspectName()));
+    }
+    log.debug("aspect = {}", aspect);
+    return aspect;
+  }
+
+  private JsonPatch convertToJsonPatch(MetadataChangeProposal mcp) {
+    JsonNode json;
+    try {
+      json = OBJECT_MAPPER.readTree(mcp.getAspect().getValue().asString(StandardCharsets.UTF_8));
+      return JsonPatch.fromJson(json);
+    } catch (IOException e) {
+      throw new IllegalArgumentException("Invalid JSON Patch: " + mcp.getAspect().getValue(), e);
+    }
+  }
+
+  private UpdateAspectResult upsertAspect(final RecordTemplate aspect, final SystemMetadata systemMetadata,
+      MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp, AspectSpec aspectSpec) {
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
+    UpdateAspectResult result =
+        wrappedIngestAspectToLocalDB(entityUrn, mcp.getAspectName(), ignored -> aspect, auditStamp,
+            systemMetadata);
+    ingestToLocalDBTimer.stop();
+    RecordTemplate oldAspect = result.getOldValue();
+    RecordTemplate newAspect = result.getNewValue();
+    // Apply retention policies asynchronously if there was an update to existing aspect value
+    if (oldAspect != newAspect && oldAspect != null && _retentionService != null) {
+      _retentionService.applyRetention(entityUrn, aspectSpec.getName(),
+          Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
+    }
+    return result;
+  }
+
+  private UpdateAspectResult patchAspect(final JsonPatch patch, final SystemMetadata systemMetadata,
+      MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp, AspectSpec aspectSpec) {
+    Timer.Context patchAspectToLocalDBTimer = MetricUtils.timer(this.getClass(), "patchAspect").time();
+    UpdateAspectResult result = patchAspectToLocalDB(entityUrn, aspectSpec, patch, auditStamp, systemMetadata);
+    patchAspectToLocalDBTimer.stop();
+    RecordTemplate oldAspect = result.getOldValue();
+    RecordTemplate newAspect = result.getNewValue();
+    // Apply retention policies asynchronously if there was an update to existing aspect value
+    if (oldAspect != newAspect && oldAspect != null && _retentionService != null) {
+      _retentionService.applyRetention(entityUrn, aspectSpec.getName(),
+          Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
+    }
+    return result;
+  }
+
+  private boolean emitChangeLog(@Nullable UpdateAspectResult result, MetadataChangeProposal mcp, Urn entityUrn,
+      AuditStamp auditStamp, AspectSpec aspectSpec) {
+    RecordTemplate oldAspect = result != null ? result.getOldValue() : null;
+    SystemMetadata oldSystemMetadata = result != null ? result.getOldSystemMetadata() : null;
+    RecordTemplate newAspect = result != null ? result.getNewValue() : null;
+    SystemMetadata newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
+
+    if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
+      log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
+
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
       metadataChangeLog.setEntityUrn(entityUrn);
       metadataChangeLog.setCreated(auditStamp);
 
@@ -819,15 +979,16 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       }
 
       log.debug("Serialized MCL event: {}", metadataChangeLog);
-      // Since only timeseries aspects are ingested as of now, simply produce mae event for it
+
       produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
+
+      return true;
     } else {
       log.debug(
           "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
-              metadataChangeProposal.getAspectName(), entityUrn);
+          mcp.getAspectName(), entityUrn);
+      return false;
     }
-
-    return new IngestProposalResult(entityUrn, oldAspect != newAspect);
   }
 
   /**
