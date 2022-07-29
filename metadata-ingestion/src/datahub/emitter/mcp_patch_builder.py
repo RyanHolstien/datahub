@@ -82,26 +82,26 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         super().__init__(urn, "dataset")
 
     def add_owner(self, owner: OwnerClass) -> "DatasetPatchBuilder":
-        self._add_patch("ownership", "add", path="owners[]", value=owner)
+        self._add_patch("ownership", "add", path="/owners/0", value=owner)
         return self
 
     def remove_owner(self, owner: OwnerClass) -> "DatasetPatchBuilder":
-        self._add_patch("ownership", "remove", path="owners[]", value=owner)
+        self._add_patch("ownership", "remove", path="/owners/0", value=owner)
         return self
 
     def set_owners(self, owners: List[OwnerClass]) -> "DatasetPatchBuilder":
-        self._add_patch("ownership", "replace", path="owners", value=owners)
+        self._add_patch("ownership", "replace", path="/owners", value=owners)
         return self
 
     def add_upstream_lineage(self, upstream: UpstreamClass) -> "DatasetPatchBuilder":
         self._add_patch(
-            "upstreamLineage", "add", path="upstreamLineage[]", value=upstream
+            "upstreamLineage", "add", path="/upstreamLineage/0", value=upstream
         )
         return self
 
     def remove_upstream_lineage(self, upstream: UpstreamClass) -> "DatasetPatchBuilder":
         self._add_patch(
-            "upstreamLineage", "remove", path="upstreamLineage[]", value=upstream
+            "upstreamLineage", "remove", path="/upstreamLineage/0", value=upstream
         )
         return self
 
@@ -109,6 +109,6 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self, upstreams: List[UpstreamClass]
     ) -> "DatasetPatchBuilder":
         self._add_patch(
-            "upstreamLineage", "replace", path="upstreamLineage", value=upstreams
+            "upstreamLineage", "replace", path="/upstreamLineage", value=upstreams
         )
         return self
