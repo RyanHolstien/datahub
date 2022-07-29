@@ -555,7 +555,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
    * Apply patch update to aspect within a single transaction
    *
    * @param urn an urn associated with the new aspect
-   * @param aspectName name of the aspect being inserted
+   * @param aspectSpec AspectSpec of the aspect to update
    * @param jsonPatch JsonPatch to apply to the aspect
    * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time   * @param providedSystemMetadata
    * @return Details about the new and old version of the aspect
@@ -583,14 +583,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         latest.setVersion(ASPECT_LATEST_VERSION);
         latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
       }
-      //TODO: map patch to standard definition before applying, array semantics [] -> /<latest.fieldName.length>
-      String unmodified = jsonPatch.toString();
-      try {
-        JsonNode patchNodes = OBJECT_MAPPER.readTree(unmodified);
-        
-      } catch (JsonProcessingException e) {
-        throw new IllegalStateException(e);
-      }
 
       long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
       JsonNode latestNode;
@@ -604,27 +596,14 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         newValue.setUrn(urnStr);
         newValue.setVersion(ASPECT_LATEST_VERSION);
         newValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
-        return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata,
+        RecordTemplate updatedValue = EntityUtils.toAspectRecord(urn, aspectName, newValue.getMetadata(), _entityRegistry);
+        return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> updatedValue, auditStamp, providedSystemMetadata,
             latest, nextVersion);
       } catch (JsonProcessingException | JsonPatchException e) {
         throw new IllegalStateException(e);
       }
     }, DEFAULT_MAX_TRANSACTION_RETRY);
   }
-
-  //TODO: remove using as reference
-//  private JsonPatch getRawDiff(EntityAspect previousValue, EntityAspect currentValue) {
-//    JsonNode prevNode = OBJECT_MAPPER.nullNode();
-//    try {
-//      if (previousValue.getVersion() != -1) {
-//        prevNode = OBJECT_MAPPER.readTree(previousValue.getMetadata());
-//      }
-//      JsonNode currNode = OBJECT_MAPPER.readTree(currentValue.getMetadata());
-//      return JsonDiff.asJsonPatch(prevNode, currNode);
-//    } catch (JsonProcessingException e) {
-//      throw new IllegalStateException(e);
-//    }
-//  }
 
   /**
    * Same as ingestAspectToLocalDB but for multiple aspects
