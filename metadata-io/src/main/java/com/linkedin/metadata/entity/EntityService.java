@@ -597,6 +597,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         newValue.setVersion(ASPECT_LATEST_VERSION);
         newValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
         RecordTemplate updatedValue = EntityUtils.toAspectRecord(urn, aspectName, newValue.getMetadata(), _entityRegistry);
+        validateAspect(urn, updatedValue);
         return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> updatedValue, auditStamp, providedSystemMetadata,
             latest, nextVersion);
       } catch (JsonProcessingException | JsonPatchException e) {
