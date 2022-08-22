@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import com.codahale.metrics.Timer;
+import com.linkedin.metadata.Constants;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -22,6 +23,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
@@ -31,13 +33,16 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
+import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
@@ -513,13 +518,19 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, providedSystemMetadata);
   }
 
+  // Validates urn subfields using EntityRegistryUrnValidator and does basic field validation for type alignment
+  // due to validator logic which inherently does coercion
   private void validateAspect(Urn urn, RecordTemplate aspect) {
     EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(_entityRegistry);
     validator.setCurrentEntitySpec(_entityRegistry.getEntitySpec(urn.getEntityType()));
+    validateAspect(urn, aspect, validator);
+  }
+
+  private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
     RecordTemplateValidator.validate(aspect, validationResult -> {
-        throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
-        + validationResult.getMessages());
-      }, validator);
+      throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
+          + validationResult.getMessages());
+    }, validator);
   }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
@@ -575,28 +586,26 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
       if (latest == null) {
         //TODO: best effort mint
-        RecordTemplate defaultTemplate = RecordUtils.constructDefaultRecordTemplate(aspectSpec.getDataTemplateClass());
-        latest = new EntityAspect();
-        latest.setAspect(aspectName);
-        latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
-        latest.setUrn(urnStr);
-        latest.setVersion(ASPECT_LATEST_VERSION);
-        latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
+        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec);
+
+        if (defaultTemplate != null) {
+          latest = new EntityAspect();
+          latest.setAspect(aspectName);
+          latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
+          latest.setUrn(urnStr);
+          latest.setVersion(ASPECT_LATEST_VERSION);
+          latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
+          latest.setCreatedBy(auditStamp.getActor().toString());
+        } else {
+          throw new UnsupportedOperationException("Patch not supported for empty aspect for aspect name: " + aspectName);
+        }
       }
 
       long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
-      JsonNode latestNode;
       try {
-        latestNode = OBJECT_MAPPER.readTree(latest.getMetadata());
-        JsonNode updated = jsonPatch.apply(latestNode);
+        RecordTemplate currentValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry);
+        RecordTemplate updatedValue =  _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
 
-        EntityAspect newValue = new EntityAspect();
-        newValue.setAspect(aspectName);
-        newValue.setMetadata(updated.toString());
-        newValue.setUrn(urnStr);
-        newValue.setVersion(ASPECT_LATEST_VERSION);
-        newValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
-        RecordTemplate updatedValue = EntityUtils.toAspectRecord(urn, aspectName, newValue.getMetadata(), _entityRegistry);
         validateAspect(urn, updatedValue);
         return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> updatedValue, auditStamp, providedSystemMetadata,
             latest, nextVersion);
@@ -836,7 +845,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       }
     }
 
-    // TBD: Still validate new != old for patch? probably
     boolean didUpdate = emitChangeLog(result, mcp, entityUrn, auditStamp, aspectSpec);
 
     return new IngestProposalResult(entityUrn, didUpdate);
@@ -868,10 +876,21 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
   private UpdateAspectResult performPatch(MetadataChangeProposal mcp, AspectSpec aspectSpec, SystemMetadata
       systemMetadata, Urn entityUrn, AuditStamp auditStamp) {
+    if (!supportsPatch(aspectSpec)) {
+      // Prevent unexpected behavior for aspects that do not currently have 1st class patch support,
+      // specifically having array based fields that require merging without specifying merge behavior can get into bad states
+      throw new UnsupportedOperationException("Aspect: " + aspectSpec.getName() + " does not currently support patch "
+          + "operations.");
+    }
     JsonPatch jsonPatch = convertToJsonPatch(mcp);
     log.debug("patch = {}", jsonPatch);
 
     return patchAspect(jsonPatch, systemMetadata, mcp, entityUrn, auditStamp, aspectSpec);
+  }
+
+  private boolean supportsPatch(AspectSpec aspectSpec) {
+    // Limit initial support to defined templates
+    return AspectTemplateEngine.SUPPORTED_TEMPLATES.contains(aspectSpec.getName());
   }
 
   private RecordTemplate convertToRecordTemplate(MetadataChangeProposal mcp, AspectSpec aspectSpec) {

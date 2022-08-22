@@ -1,8 +1,6 @@
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List
-
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
@@ -12,6 +10,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     UpstreamClass,
 )
+from typing import Any, Dict, List
 
 
 def _recursive_to_obj(obj: Any) -> Any:
@@ -95,13 +94,13 @@ class DatasetPatchBuilder(MetadataPatchProposal):
 
     def add_upstream_lineage(self, upstream: UpstreamClass) -> "DatasetPatchBuilder":
         self._add_patch(
-            "upstreamLineage", "add", path="/upstreamLineage/0", value=upstream
+            "upstreamLineage", "add", path="/upstreams/0", value=upstream
         )
         return self
 
     def remove_upstream_lineage(self, upstream: UpstreamClass) -> "DatasetPatchBuilder":
         self._add_patch(
-            "upstreamLineage", "remove", path="/upstreamLineage/0", value=upstream
+            "upstreamLineage", "remove", path="/upstreams/0", value=upstream
         )
         return self
 
@@ -109,6 +108,6 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self, upstreams: List[UpstreamClass]
     ) -> "DatasetPatchBuilder":
         self._add_patch(
-            "upstreamLineage", "replace", path="/upstreamLineage", value=upstreams
+            "upstreamLineage", "replace", path="/upstreams", value=upstreams
         )
         return self

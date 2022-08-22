@@ -139,22 +139,6 @@ public class RecordUtils {
     return toRecordTemplate(clazz, dataMap);
   }
 
-  @Nonnull
-  public static <T extends RecordTemplate> RecordTemplate constructDefaultRecordTemplate(@Nonnull Class<T> type) {
-    Constructor<T> constructor;
-    try {
-      constructor = type.getConstructor();
-    } catch (NoSuchMethodException e) {
-      throw new ModelConversionException("Unable to find constructor for " + type.getCanonicalName(), e);
-    }
-
-    try {
-      return constructor.newInstance();
-    } catch (Exception e) {
-      throw new ModelConversionException("Failed to invoke constructor for " + type.getCanonicalName(), e);
-    }
-  }
-
   /**
    * Extracts the aspect from an entity value which includes a single aspect.
    *
@@ -245,7 +229,7 @@ public class RecordUtils {
    * @param fieldName the name of the field to update
    * @param value the value to set
    */
-  public static <T extends RecordTemplate, V extends DataTemplate> void setRecordTemplateComplexField(
+  public static <T extends RecordTemplate, V> void setRecordTemplateComplexField(
       @Nonnull T recordTemplate, @Nonnull String fieldName, @Nonnull V value) {
 
     final RecordDataSchema.Field field = getRecordDataSchemaField(recordTemplate, fieldName);
