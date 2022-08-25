@@ -1,20 +1,20 @@
 package com.linkedin.metadata.models.registry.template.dataset;
 
-import com.linkedin.common.urn.Urn;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.FineGrainedLineageArray;
-import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 
 
 public class UpstreamLineageTemplate implements ArrayMergingTemplate<UpstreamLineage> {
+
+  private static final String UPSTREAMS_FIELD_NAME = "upstreams";
+  private static final String DATASET_FIELD_NAME = "dataset";
+  // TODO: Fine Grained Lineages not patchable at this time, they don't have a well established key
 
   @Override
   public UpstreamLineage getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -22,6 +22,11 @@ public class UpstreamLineageTemplate implements ArrayMergingTemplate<UpstreamLin
       return (UpstreamLineage) recordTemplate;
     }
     throw new ClassCastException("Unable to cast RecordTemplate to UpstreamLineage");
+  }
+
+  @Override
+  public Class<UpstreamLineage> getTemplateType() {
+    return UpstreamLineage.class;
   }
 
   @Nonnull
@@ -34,31 +39,15 @@ public class UpstreamLineageTemplate implements ArrayMergingTemplate<UpstreamLin
     return upstreamLineage;
   }
 
+  @Nonnull
   @Override
-  public UpstreamLineage mergeArrayFields(UpstreamLineage original, UpstreamLineage newValue) {
-    UpstreamArray originalUpstreams = original.getUpstreams();
-    Map<Urn, Upstream> originalUpstreamMap = originalUpstreams.stream()
-        .collect(Collectors.toMap(Upstream::getDataset, Function.identity()));
+  public JsonNode transformFields(JsonNode baseNode) {
+    return arrayFieldToMap(baseNode, UPSTREAMS_FIELD_NAME, Collections.singletonList(DATASET_FIELD_NAME));
+  }
 
-    UpstreamArray newUpstreams = newValue.getUpstreams();
-    Map<Urn, Upstream> newUpstreamMap = new HashMap<>();
-    for (Upstream upstream : newUpstreams) {
-      if (!newUpstreamMap.containsKey(upstream.getDataset())) {
-        newUpstreamMap.put(upstream.getDataset(), upstream);
-      } else {
-        // Current obj in map is equivalent to what was in old, take new
-        if (originalUpstreamMap.containsKey(upstream.getDataset())
-            && originalUpstreamMap.get(upstream.getDataset()).equals(newUpstreamMap.get(upstream.getDataset()))) {
-          newUpstreamMap.put(upstream.getDataset(), upstream);
-        }
-        // Ignore duplicate entries in patch, i.e. add obj1, add obj1 will only result in one obj1 entry in list,
-        // first one wins out
-      }
-    }
-
-    // We don't have a key to be able to dedupe fine grained lineages, so can't currently dedupe these in a simple way.
-    // Since these are not treated as a simple map in the UI this shouldn't cause issues, but has potential for weird states.
-
-    return newValue.setUpstreams(new UpstreamArray(newUpstreamMap.values()));
+  @Nonnull
+  @Override
+  public JsonNode rebaseFields(JsonNode patched) {
+    return transformedMapToArray(patched, UPSTREAMS_FIELD_NAME, Collections.singletonList(DATASET_FIELD_NAME));
   }
 }

@@ -1,35 +1,39 @@
 package com.linkedin.metadata.models.registry.template.dataset;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.GlobalTags;
-import com.linkedin.common.GlossaryTermAssociation;
-import com.linkedin.common.GlossaryTermAssociationArray;
-import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.TagAssociation;
-import com.linkedin.common.TagAssociationArray;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
-import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.metadata.models.registry.template.common.GlobalTagsTemplate;
+import com.linkedin.metadata.models.registry.template.common.GlossaryTermsTemplate;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
 
 
 public class EditableSchemaMetadataTemplate implements ArrayMergingTemplate<EditableSchemaMetadata> {
+
+  private static final String EDITABLE_SCHEMA_FIELD_INFO_FIELD_NAME = "editableSchemaFieldInfo";
+  private static final String FIELDPATH_FIELD_NAME = "fieldPath";
+  private static final String GLOBAL_TAGS_FIELD_NAME = "globalTags";
+  private static final String GLOSSARY_TERMS_FIELD_NAME = "glossaryTerms";
+
   @Override
   public EditableSchemaMetadata getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
     if (recordTemplate instanceof EditableSchemaMetadata) {
       return (EditableSchemaMetadata) recordTemplate;
     }
     throw new ClassCastException("Unable to cast RecordTemplate to EditableSchemaMetadata");
+  }
+
+  @Override
+  public Class<EditableSchemaMetadata> getTemplateType() {
+    return EditableSchemaMetadata.class;
   }
 
   @Nonnull
@@ -42,48 +46,45 @@ public class EditableSchemaMetadataTemplate implements ArrayMergingTemplate<Edit
         .setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray());
   }
 
+  @Nonnull
   @Override
-  public EditableSchemaMetadata mergeArrayFields(EditableSchemaMetadata original, EditableSchemaMetadata newValue) {
-    EditableSchemaFieldInfoArray originalSchemaFields = original.getEditableSchemaFieldInfo();
-    Map<String, EditableSchemaFieldInfo> originalSchemaFieldMap = originalSchemaFields.stream()
-        .collect(Collectors.toMap(EditableSchemaFieldInfo::getFieldPath, Function.identity()));
+  public JsonNode transformFields(JsonNode baseNode) {
+    JsonNode transformedNode = arrayFieldToMap(baseNode, EDITABLE_SCHEMA_FIELD_INFO_FIELD_NAME,
+        Collections.singletonList(FIELDPATH_FIELD_NAME));
+    // Create temporary templates for array subfields
+    GlobalTagsTemplate globalTagsTemplate = new GlobalTagsTemplate();
+    GlossaryTermsTemplate glossaryTermsTemplate = new GlossaryTermsTemplate();
 
-    // Merge duplicate entries, using fieldPath for key, shouldn't be multiple equivalent fieldPaths
-    EditableSchemaFieldInfoArray newSchemaFields = newValue.getEditableSchemaFieldInfo();
-    Map<String, EditableSchemaFieldInfo> newSchemaFieldMap = new HashMap<>();
-    for (EditableSchemaFieldInfo schemaField : newSchemaFields) {
-      if (!newSchemaFieldMap.containsKey(schemaField.getFieldPath())) {
-        newSchemaFieldMap.put(schemaField.getFieldPath(), schemaField);
-      } else {
-        // Current obj in map is equivalent to what was in old, take new
-        if (originalSchemaFieldMap.containsKey(schemaField.getFieldPath())
-            && originalSchemaFieldMap.get(schemaField.getFieldPath()).equals(newSchemaFieldMap.get(schemaField.getFieldPath()))) {
-          newSchemaFieldMap.put(schemaField.getFieldPath(), schemaField);
-        }
-        // Ignore duplicate entries in patch, i.e. add obj1, add obj1 will only result in one obj1 entry in list,
-        // first one wins out
-      }
-    }
-    // Dedupe lower level array fields for each schema field, we pick first field since we're always patching to start of array
-    for (EditableSchemaFieldInfo schemaFieldInfo : newSchemaFieldMap.values()) {
-      // Dedupe terms
-      GlossaryTerms glossaryTerms = schemaFieldInfo.getGlossaryTerms();
-      if (glossaryTerms != null) {
-        GlossaryTermAssociationArray termAssociations = glossaryTerms.getTerms();
-        Map<Urn, GlossaryTermAssociation> termAssociationMap = termAssociations.stream()
-            .collect(Collectors.toMap(GlossaryTermAssociation::getUrn, Function.identity(), (term1, term2) -> term1));
-        schemaFieldInfo.setGlossaryTerms(glossaryTerms.setTerms(new GlossaryTermAssociationArray(termAssociationMap.values())));
-      }
-      // Dedupe tags
-      GlobalTags globalTags = schemaFieldInfo.getGlobalTags();
+    // Apply template transforms to array subfields
+    transformedNode.get(EDITABLE_SCHEMA_FIELD_INFO_FIELD_NAME).elements().forEachRemaining(node -> {
+      ((ObjectNode) node).set(GLOBAL_TAGS_FIELD_NAME, globalTagsTemplate.transformFields(node.get(GLOBAL_TAGS_FIELD_NAME)));
+      ((ObjectNode) node).set(GLOSSARY_TERMS_FIELD_NAME, glossaryTermsTemplate.transformFields(node.get(GLOSSARY_TERMS_FIELD_NAME)));
+    });
+    return transformedNode;
+  }
+
+  @Nonnull
+  @Override
+  public JsonNode rebaseFields(JsonNode patched) {
+    JsonNode rebasedNode = transformedMapToArray(patched, EDITABLE_SCHEMA_FIELD_INFO_FIELD_NAME,
+        Collections.singletonList(FIELDPATH_FIELD_NAME));
+    // Create temporary templates for array subfields
+    GlobalTagsTemplate globalTagsTemplate = new GlobalTagsTemplate();
+    GlossaryTermsTemplate glossaryTermsTemplate = new GlossaryTermsTemplate();
+
+    // Apply template rebases to array subfields
+    rebasedNode.get(EDITABLE_SCHEMA_FIELD_INFO_FIELD_NAME).elements().forEachRemaining(node -> {
+      JsonNode globalTags = node.get(GLOBAL_TAGS_FIELD_NAME);
+      JsonNode glossaryTerms = node.get(GLOSSARY_TERMS_FIELD_NAME);
       if (globalTags != null) {
-        TagAssociationArray tagAssociations = globalTags.getTags();
-        Map<Urn, TagAssociation> tagAssociationMap = tagAssociations.stream()
-            .collect(Collectors.toMap(TagAssociation::getTag, Function.identity(), (tag1, tag2) -> tag1));
-        schemaFieldInfo.setGlobalTags(globalTags.setTags(new TagAssociationArray(tagAssociationMap.values())));
+        ((ObjectNode) node).set(GLOBAL_TAGS_FIELD_NAME, globalTagsTemplate.rebaseFields(globalTags));
       }
-    }
+      if (glossaryTerms != null) {
+        ((ObjectNode) node).set(GLOSSARY_TERMS_FIELD_NAME, glossaryTermsTemplate.rebaseFields(glossaryTerms));
+      }
+    });
 
-    return newValue.setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray(newSchemaFieldMap.values()));
+
+    return rebasedNode;
   }
 }

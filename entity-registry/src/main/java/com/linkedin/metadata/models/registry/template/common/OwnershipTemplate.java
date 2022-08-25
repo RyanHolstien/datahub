@@ -1,23 +1,23 @@
 package com.linkedin.metadata.models.registry.template.common;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import com.linkedin.metadata.models.registry.template.CompoundKeyTemplate;
+import java.util.Arrays;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
 
 
-public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
+public class OwnershipTemplate extends CompoundKeyTemplate<Ownership> {
+
+  private static final String OWNERS_FIELD_NAME = "owners";
+  private static final String OWNER_FIELD_NAME = "owner";
+  private static final String TYPE_FIELD_NAME = "type";
 
   @Override
   public Ownership getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -25,6 +25,11 @@ public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
       return (Ownership) recordTemplate;
     }
     throw new ClassCastException("Unable to cast RecordTemplate to Ownership");
+  }
+
+  @Override
+  public Class<Ownership> getTemplateType() {
+    return Ownership.class;
   }
 
   @Nonnull
@@ -39,29 +44,15 @@ public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
     return ownership;
   }
 
+  @Nonnull
   @Override
-  public Ownership mergeArrayFields(Ownership original, Ownership newValue) {
-    OwnerArray owners = original.getOwners();
-    Map<Urn, Owner> originalOwnerMap = owners.stream()
-        .collect(Collectors.toMap(Owner::getOwner, Function.identity()));
+  public JsonNode transformFields(JsonNode baseNode) {
+    return arrayFieldToMap(baseNode, OWNERS_FIELD_NAME, Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
+  }
 
-    // Merge duplicate entries
-    OwnerArray newOwners = newValue.getOwners();
-    Map<Urn, Owner> newOwnerMap = new HashMap<>();
-    for (Owner owner : newOwners) {
-      if (!newOwnerMap.containsKey(owner.getOwner())) {
-        newOwnerMap.put(owner.getOwner(), owner);
-      } else {
-        // Current obj in map is equivalent to what was in old, take new
-        if (originalOwnerMap.containsKey(owner.getOwner())
-            && originalOwnerMap.get(owner.getOwner()).equals(newOwnerMap.get(owner.getOwner()))) {
-          newOwnerMap.put(owner.getOwner(), owner);
-        }
-        // Ignore duplicate entries in patch, i.e. add obj1, add obj1 will only result in one obj1 entry in list,
-        // first one wins out
-      }
-    }
-
-    return newValue.setOwners(new OwnerArray(newOwnerMap.values()));
+  @Nonnull
+  @Override
+  public JsonNode rebaseFields(JsonNode patched) {
+    return transformedMapToArray(patched, OWNERS_FIELD_NAME, Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
   }
 }

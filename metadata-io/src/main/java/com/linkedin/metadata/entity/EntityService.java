@@ -1,7 +1,6 @@
 package com.linkedin.metadata.entity;
 
 import com.codahale.metrics.Timer;
-import com.linkedin.metadata.Constants;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -9,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
+import com.github.fge.jsonpatch.Patch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -33,6 +33,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
@@ -576,7 +577,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   protected UpdateAspectResult patchAspectToLocalDB(
       @Nonnull final Urn urn,
       @Nonnull final AspectSpec aspectSpec,
-      @Nonnull final JsonPatch jsonPatch,
+      @Nonnull final Patch jsonPatch,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata providedSystemMetadata) {
 
@@ -586,7 +587,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
       if (latest == null) {
         //TODO: best effort mint
-        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec);
+        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
 
         if (defaultTemplate != null) {
           latest = new EntityAspect();
@@ -882,7 +883,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       throw new UnsupportedOperationException("Aspect: " + aspectSpec.getName() + " does not currently support patch "
           + "operations.");
     }
-    JsonPatch jsonPatch = convertToJsonPatch(mcp);
+    Patch jsonPatch = convertToJsonPatch(mcp);
     log.debug("patch = {}", jsonPatch);
 
     return patchAspect(jsonPatch, systemMetadata, mcp, entityUrn, auditStamp, aspectSpec);
@@ -908,7 +909,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return aspect;
   }
 
-  private JsonPatch convertToJsonPatch(MetadataChangeProposal mcp) {
+  private Patch convertToJsonPatch(MetadataChangeProposal mcp) {
     JsonNode json;
     try {
       json = OBJECT_MAPPER.readTree(mcp.getAspect().getValue().asString(StandardCharsets.UTF_8));
@@ -935,7 +936,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return result;
   }
 
-  private UpdateAspectResult patchAspect(final JsonPatch patch, final SystemMetadata systemMetadata,
+  private UpdateAspectResult patchAspect(final Patch patch, final SystemMetadata systemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp, AspectSpec aspectSpec) {
     Timer.Context patchAspectToLocalDBTimer = MetricUtils.timer(this.getClass(), "patchAspect").time();
     UpdateAspectResult result = patchAspectToLocalDB(entityUrn, aspectSpec, patch, auditStamp, systemMetadata);

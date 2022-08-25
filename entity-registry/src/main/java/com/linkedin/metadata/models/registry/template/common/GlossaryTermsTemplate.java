@@ -1,17 +1,13 @@
 package com.linkedin.metadata.models.registry.template.common;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
@@ -19,12 +15,20 @@ import static com.linkedin.metadata.Constants.*;
 
 public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms> {
 
+  private static final String TERMS_FIELD_NAME = "terms";
+  private static final String URN_FIELD_NAME = "urn";
+
   @Override
   public GlossaryTerms getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
     if (recordTemplate instanceof GlossaryTerms) {
       return (GlossaryTerms) recordTemplate;
     }
     throw new ClassCastException("Unable to cast RecordTemplate to GlossaryTerms");
+  }
+
+  @Override
+  public Class<GlossaryTerms> getTemplateType() {
+    return GlossaryTerms.class;
   }
 
   @Nonnull
@@ -37,29 +41,15 @@ public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms
     return glossaryTerms;
   }
 
+  @Nonnull
   @Override
-  public GlossaryTerms mergeArrayFields(GlossaryTerms original, GlossaryTerms newValue) {
-    GlossaryTermAssociationArray originalTerms = original.getTerms();
-    Map<Urn, GlossaryTermAssociation> originalTermMap = originalTerms.stream()
-        .collect(Collectors.toMap(GlossaryTermAssociation::getUrn, Function.identity()));
+  public JsonNode transformFields(JsonNode baseNode) {
+    return arrayFieldToMap(baseNode, TERMS_FIELD_NAME, Collections.singletonList(URN_FIELD_NAME));
+  }
 
-    // Merge duplicate entries
-    GlossaryTermAssociationArray newTerms = newValue.getTerms();
-    Map<Urn, GlossaryTermAssociation> newTermMap = new HashMap<>();
-    for (GlossaryTermAssociation termAssociation : newTerms) {
-      if (!newTermMap.containsKey(termAssociation.getUrn())) {
-        newTermMap.put(termAssociation.getUrn(), termAssociation);
-      } else {
-        // Current obj in map is equivalent to what was in old, take new
-        if (originalTermMap.containsKey(termAssociation.getUrn())
-            && originalTermMap.get(termAssociation.getUrn()).equals(newTermMap.get(termAssociation.getUrn()))) {
-          newTermMap.put(termAssociation.getUrn(), termAssociation);
-        }
-        // Ignore duplicate entries in patch, i.e. add obj1, add obj1 will only result in one obj1 entry in list,
-        // first one wins out
-      }
-    }
-
-    return newValue.setTerms(new GlossaryTermAssociationArray(newTermMap.values()));
+  @Nonnull
+  @Override
+  public JsonNode rebaseFields(JsonNode patched) {
+    return transformedMapToArray(patched, TERMS_FIELD_NAME, Collections.singletonList(URN_FIELD_NAME));
   }
 }

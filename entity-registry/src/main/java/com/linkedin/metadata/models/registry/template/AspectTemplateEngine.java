@@ -1,11 +1,8 @@
 package com.linkedin.metadata.models.registry.template;
 
-import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
+import com.github.fge.jsonpatch.Patch;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
 import java.util.HashMap;
@@ -28,10 +25,9 @@ public class AspectTemplateEngine {
       DATASET_PROPERTIES_ASPECT_NAME,
       EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
       GLOBAL_TAGS_ASPECT_NAME,
+      GLOSSARY_TERMS_ASPECT_NAME,
       OWNERSHIP_ASPECT_NAME,
       UPSTREAM_LINEAGE_ASPECT_NAME).collect(Collectors.toSet());
-
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
 
@@ -44,8 +40,8 @@ public class AspectTemplateEngine {
   }
 
   @Nullable
-  public RecordTemplate getDefaultTemplate(AspectSpec aspectSpec) {
-    return _aspectTemplateMap.containsKey(aspectSpec) ? _aspectTemplateMap.get(aspectSpec).getDefault() : null;
+  public RecordTemplate getDefaultTemplate(String aspectSpecName) {
+    return _aspectTemplateMap.containsKey(aspectSpecName) ? _aspectTemplateMap.get(aspectSpecName).getDefault() : null;
   }
 
   /**
@@ -58,21 +54,15 @@ public class AspectTemplateEngine {
    * @throws JsonPatchException if there is an issue with applying the json patch
    */
   @Nonnull
-  public <T extends RecordTemplate> RecordTemplate applyPatch(RecordTemplate recordTemplate, JsonPatch jsonPatch, AspectSpec aspectSpec)
+  public <T extends RecordTemplate> RecordTemplate applyPatch(RecordTemplate recordTemplate, Patch jsonPatch, AspectSpec aspectSpec)
       throws JsonProcessingException, JsonPatchException {
-    JsonNode patchedNode = jsonPatch.apply(OBJECT_MAPPER.readTree(RecordUtils.toJsonString(recordTemplate)));
-    RecordTemplate patchedTemplate = RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), patchedNode.toString());
 
-    Template<T> template = getTemplateOrDefault(aspectSpec);
-    if (template instanceof ArrayMergingTemplate) {
-      patchedTemplate = ((ArrayMergingTemplate<T>) template).mergeArrayFields(template.getSubtype(recordTemplate),
-          template.getSubtype(patchedTemplate));
-    }
-    return patchedTemplate;
+    Template<T> template = getTemplate(aspectSpec);
+    return template.applyPatch(recordTemplate, jsonPatch);
   }
 
   // Get around lack of generics on AspectSpec data template class
-  private <T extends RecordTemplate> Template<T> getTemplateOrDefault(AspectSpec aspectSpec) {
-    return (Template<T>) _aspectTemplateMap.getOrDefault(aspectSpec, null);
+  private <T extends RecordTemplate> Template<T> getTemplate(AspectSpec aspectSpec) {
+    return (Template<T>) _aspectTemplateMap.getOrDefault(aspectSpec.getName(), null);
   }
 }
