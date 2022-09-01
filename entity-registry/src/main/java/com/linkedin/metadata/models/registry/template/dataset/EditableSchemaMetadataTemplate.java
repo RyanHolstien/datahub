@@ -57,8 +57,14 @@ public class EditableSchemaMetadataTemplate implements ArrayMergingTemplate<Edit
 
     // Apply template transforms to array subfields
     transformedNode.get(EDITABLE_SCHEMA_FIELD_INFO_FIELD_NAME).elements().forEachRemaining(node -> {
-      ((ObjectNode) node).set(GLOBAL_TAGS_FIELD_NAME, globalTagsTemplate.transformFields(node.get(GLOBAL_TAGS_FIELD_NAME)));
-      ((ObjectNode) node).set(GLOSSARY_TERMS_FIELD_NAME, glossaryTermsTemplate.transformFields(node.get(GLOSSARY_TERMS_FIELD_NAME)));
+      JsonNode globalTags = node.get(GLOBAL_TAGS_FIELD_NAME);
+      JsonNode glossaryTerms = node.get(GLOSSARY_TERMS_FIELD_NAME);
+      if (globalTags != null) {
+        ((ObjectNode) node).set(GLOBAL_TAGS_FIELD_NAME, globalTagsTemplate.transformFields(node.get(GLOBAL_TAGS_FIELD_NAME)));
+      }
+      if (glossaryTerms != null) {
+        ((ObjectNode) node).set(GLOSSARY_TERMS_FIELD_NAME, glossaryTermsTemplate.transformFields(node.get(GLOSSARY_TERMS_FIELD_NAME)));
+      }
     });
     return transformedNode;
   }
