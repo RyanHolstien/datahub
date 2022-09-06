@@ -5,10 +5,11 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
+from enum import Enum
 from threading import BoundedSemaphore
 from typing import Union, cast
 
-from tdigest import TDigest
+from pydantic import validator
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import ConfigurationError, OperationalError
@@ -28,26 +29,31 @@ from datahub.utilities.server_config_util import set_gms_config
 logger = logging.getLogger(__name__)
 
 
+class SyncOrAsync(Enum):
+    SYNC = "SYNC"
+    ASYNC = "ASYNC"
+
+
 class DatahubRestSinkConfig(DatahubClientConfig):
     max_pending_requests: int = 1000
-    use_sync_emitter_on_async_failure: bool = False
+    mode: SyncOrAsync = SyncOrAsync.ASYNC
+
+    @validator("mode", pre=True)
+    def str_to_enum_value(cls, v):
+        if v and isinstance(v, str):
+            return v.upper()
 
 
 @dataclass
 class DataHubRestSinkReport(SinkReport):
     gms_version: str = ""
     pending_requests: int = 0
-    _digest = TDigest()
 
     def compute_stats(self) -> None:
         super().compute_stats()
-        self.ninety_fifth_percentile_write_latency_in_millis = self._digest.percentile(
-            95
-        )
-        self.fiftieth_percentile_write_latency_in_millis = self._digest.percentile(50)
 
     def report_write_latency(self, delta: timedelta) -> None:
-        self._digest.update(round(delta.total_seconds() * 1000.0))
+        pass
 
 
 class BoundedExecutor:
@@ -165,6 +171,9 @@ class DatahubRestSink(Sink):
                         e.info["stackTrace"] = "\n".join(
                             e.info["stackTrace"].split("\n")[:3]
                         )
+                        e.info["message"] = e.info.get("message", "").split("\n")[0][
+                            :200
+                        ]
 
                 if not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})
@@ -197,7 +206,7 @@ class DatahubRestSink(Sink):
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record
-        try:
+        if self.config.mode == SyncOrAsync.ASYNC:
             write_future = self.executor.submit(self.emitter.emit, record)
             write_future.add_done_callback(
                 functools.partial(
@@ -205,15 +214,13 @@ class DatahubRestSink(Sink):
                 )
             )
             self.report.pending_requests += 1
-        except RuntimeError:
-            if self.config.use_sync_emitter_on_async_failure:
-                try:
-                    (start, end) = self.emitter.emit(record)
-                    write_callback.on_success(record_envelope, success_metadata={})
-                except Exception as e:
-                    write_callback.on_failure(record_envelope, e, failure_metadata={})
-            else:
-                raise
+        else:
+            # execute synchronously
+            try:
+                (start, end) = self.emitter.emit(record)
+                write_callback.on_success(record_envelope, success_metadata={})
+            except Exception as e:
+                write_callback.on_failure(record_envelope, e, failure_metadata={})
 
     def get_report(self) -> SinkReport:
         return self.report
