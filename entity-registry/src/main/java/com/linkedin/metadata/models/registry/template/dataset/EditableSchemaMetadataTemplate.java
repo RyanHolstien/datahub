@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
+import com.linkedin.metadata.models.registry.template.CompoundKeyTemplate;
 import com.linkedin.metadata.models.registry.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.models.registry.template.common.GlossaryTermsTemplate;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
@@ -16,7 +16,7 @@ import javax.annotation.Nonnull;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class EditableSchemaMetadataTemplate implements ArrayMergingTemplate<EditableSchemaMetadata> {
+public class EditableSchemaMetadataTemplate extends CompoundKeyTemplate<EditableSchemaMetadata> {
 
   private static final String EDITABLE_SCHEMA_FIELD_INFO_FIELD_NAME = "editableSchemaFieldInfo";
   private static final String FIELDPATH_FIELD_NAME = "fieldPath";

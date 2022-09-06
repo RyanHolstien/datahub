@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry.template.common;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
@@ -10,6 +11,7 @@ import com.linkedin.metadata.models.registry.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -17,6 +19,9 @@ public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms
 
   private static final String TERMS_FIELD_NAME = "terms";
   private static final String URN_FIELD_NAME = "urn";
+  private static final String AUDIT_STAMP_FIELD = "auditStamp";
+  private static final String TIME_FIELD = "time";
+  private static final String ACTOR_FIELD = "actor";
 
   @Override
   public GlossaryTerms getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -44,12 +49,26 @@ public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
+    // Set required deprecated field
+    if (baseNode.get(AUDIT_STAMP_FIELD) == null) {
+      ObjectNode auditStampNode = instance.objectNode();
+      auditStampNode.put(ACTOR_FIELD, SYSTEM_ACTOR)
+          .put(TIME_FIELD, System.currentTimeMillis());
+      ((ObjectNode) baseNode).set(AUDIT_STAMP_FIELD, auditStampNode);
+    }
     return arrayFieldToMap(baseNode, TERMS_FIELD_NAME, Collections.singletonList(URN_FIELD_NAME));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
+    // Set required deprecated field
+    if (patched.get(AUDIT_STAMP_FIELD) == null) {
+      ObjectNode auditStampNode = instance.objectNode();
+      auditStampNode.put(ACTOR_FIELD, SYSTEM_ACTOR)
+          .put(TIME_FIELD, System.currentTimeMillis());
+      ((ObjectNode) patched).set(AUDIT_STAMP_FIELD, auditStampNode);
+    }
     return transformedMapToArray(patched, TERMS_FIELD_NAME, Collections.singletonList(URN_FIELD_NAME));
   }
 }
