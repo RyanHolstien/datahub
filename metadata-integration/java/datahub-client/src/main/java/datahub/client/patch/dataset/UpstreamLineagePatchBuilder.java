@@ -52,7 +52,7 @@ public class UpstreamLineagePatchBuilder extends AbstractPatchBuilder<UpstreamLi
     auditStamp.put(TIME_KEY, 0)
         .put(ACTOR_KEY, UNKNOWN_ACTOR);
     value.put(DATASET_KEY, dataset.toString())
-        .set(AUDIT_STAMP_KEY,auditStamp);
+        .set(AUDIT_STAMP_KEY, auditStamp);
 
     if (lineageType != null) {
         value.put(TYPE_KEY, lineageType.toString());
