@@ -42,7 +42,7 @@ public abstract class AbstractPatchBuilder<T extends AbstractPatchBuilder<T>> {
 
   /**
    * Generates Json patch for this builder to be set on the returned proposal from the buidler method
-   * @return a {@link com.github.fge.jsonpatch.JsonPatch} wrapped by GenericAspect
+   * @return a JsonPatch wrapped by GenericAspect
    */
   protected GenericAspect buildPatch() {
     boolean propertyNotSet = getRequiredProperties().anyMatch(Objects::isNull);
