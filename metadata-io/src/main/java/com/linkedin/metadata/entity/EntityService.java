@@ -969,6 +969,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
       metadataChangeLog.setEntityUrn(entityUrn);
       metadataChangeLog.setCreated(auditStamp);
+      // The change log produced by this method is always an upsert as it contains the entire RecordTemplate update
+      metadataChangeLog.setChangeType(ChangeType.UPSERT);
 
       if (oldAspect != null) {
         metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));

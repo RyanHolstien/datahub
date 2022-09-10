@@ -3,11 +3,12 @@ package com.linkedin.metadata.models.registry.template;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
 import com.linkedin.data.template.RecordTemplate;
 import javax.annotation.Nonnull;
+
+import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
 
 
 public interface Template<T extends RecordTemplate> {
@@ -57,7 +58,7 @@ public interface Template<T extends RecordTemplate> {
    */
   default JsonNode preprocessTemplate(RecordTemplate recordTemplate) throws JsonProcessingException {
     T subtype = getSubtype(recordTemplate);
-    JsonNode baseNode = new ObjectMapper().readTree(RecordUtils.toJsonString(subtype));
+    JsonNode baseNode = OBJECT_MAPPER.readTree(RecordUtils.toJsonString(subtype));
     return transformFields(baseNode);
   }
 

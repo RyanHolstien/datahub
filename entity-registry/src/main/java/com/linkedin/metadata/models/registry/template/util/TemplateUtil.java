@@ -13,6 +13,8 @@ public class TemplateUtil {
 
   }
 
+  public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   public static List<String> getPaths(Patch jsonPatch) {
     JsonNode patchNode = new ObjectMapper().valueToTree(jsonPatch);
     List<String> paths = new ArrayList<>();

@@ -1,7 +1,6 @@
 package datahub.client.patch.dataset;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import datahub.client.patch.AbstractPatchBuilder;
 import java.util.List;
@@ -43,11 +42,10 @@ public class DatasetPropertiesPatchBuilder extends AbstractPatchBuilder<DatasetP
 
   @Override
   protected JsonNode getValue() {
-    ObjectMapper mapper = new ObjectMapper();
     ObjectNode value = instance.objectNode();
 
     if (customProperties != null) {
-      value.set(CUSTOM_PROPERTIES_KEY, mapper.valueToTree(customProperties));
+      value.set(CUSTOM_PROPERTIES_KEY, OBJECT_MAPPER.valueToTree(customProperties));
     }
     if (description != null) {
       value.put(DESCRIPTION_KEY, description);
@@ -65,7 +63,7 @@ public class DatasetPropertiesPatchBuilder extends AbstractPatchBuilder<DatasetP
       value.put(EXTERNAL_URL_KEY, externalUrl);
     }
     if (tags != null) {
-      value.put(TAGS_KEY, mapper.valueToTree(tags));
+      value.put(TAGS_KEY, OBJECT_MAPPER.valueToTree(tags));
     }
 
     return value;

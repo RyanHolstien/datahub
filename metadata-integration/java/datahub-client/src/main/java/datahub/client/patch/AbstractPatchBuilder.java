@@ -1,6 +1,7 @@
 package datahub.client.patch;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
@@ -25,6 +26,8 @@ public abstract class AbstractPatchBuilder<T extends AbstractPatchBuilder<T>> {
   public static final String OP_KEY = "op";
   public static final String VALUE_KEY = "value";
   public static final String PATH_KEY = "path";
+
+  public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   /**
    * Builder method
