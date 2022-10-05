@@ -23,10 +23,10 @@ public class BulkListener implements BulkProcessor.Listener {
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
     if (response.hasFailures()) {
       log.error("Failed to feed bulk request. Number of events: " + response.getItems().length + " Took time ms: "
-              + response.getIngestTookInMillis() + " Message: " + response.buildFailureMessage());
+              + response.getTook().getMillis() + " Message: " + response.buildFailureMessage());
     } else {
       log.info("Successfully fed bulk request. Number of events: " + response.getItems().length + " Took time ms: "
-              + response.getIngestTookInMillis());
+              + response.getTook().getMillis());
     }
   }
 

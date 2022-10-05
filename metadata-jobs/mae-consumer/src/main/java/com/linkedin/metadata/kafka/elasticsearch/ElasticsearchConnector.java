@@ -23,39 +23,8 @@ public class ElasticsearchConnector {
   private static final int DEFAULT_NUMBER_OF_RETRIES = 3; // TODO: Test and also add these into config
   private static final long DEFAULT_RETRY_INTERVAL = 1L;
 
-  public ElasticsearchConnector(RestHighLevelClient elasticSearchRestClient, Integer bulkRequestsLimit,
-      Integer bulkFlushPeriod) {
-    initBulkProcessor(elasticSearchRestClient, bulkRequestsLimit, bulkFlushPeriod);
-  }
-
-  private void initBulkProcessor(RestHighLevelClient elasticSearchRestClient, Integer bulkRequestsLimit,
-      Integer bulkFlushPeriod) {
-    BulkProcessor.Listener listener = new BulkProcessor.Listener() {
-      @Override
-      public void beforeBulk(long executionId, BulkRequest request) {
-
-      }
-
-      @Override
-      public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
-        log.info("Successfully feeded bulk request. Number of events: " + response.getItems().length + " Took time ms: "
-            + response.getIngestTookInMillis());
-      }
-
-      @Override
-      public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-        log.error("Error feeding bulk request. No retries left", failure);
-      }
-    };
-
-    _bulkProcessor = BulkProcessor.builder(
-        (request, bulkListener) -> elasticSearchRestClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-        listener)
-        .setBulkActions(bulkRequestsLimit)
-        .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-        .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(DEFAULT_RETRY_INTERVAL),
-            DEFAULT_NUMBER_OF_RETRIES))
-        .build();
+  public ElasticsearchConnector(BulkProcessor bulkProcessor) {
+    _bulkProcessor = bulkProcessor;
   }
 
   public void feedElasticEvent(@Nonnull ElasticEvent event) {

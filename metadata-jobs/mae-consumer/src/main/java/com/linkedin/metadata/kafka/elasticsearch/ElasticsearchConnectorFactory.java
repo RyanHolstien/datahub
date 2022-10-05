@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -22,8 +23,8 @@ public class ElasticsearchConnectorFactory {
 
   @Bean(name = "elasticsearchConnector")
   @Nonnull
-  public ElasticsearchConnector createInstance(@Nonnull RestHighLevelClient elasticSearchRestHighLevelClient) {
-    return new ElasticsearchConnector(elasticSearchRestHighLevelClient, bulkRequestsLimit, bulkFlushPeriod);
+  public ElasticsearchConnector createInstance(@Nonnull BulkProcessor bulkProcessor) {
+    return new ElasticsearchConnector(bulkProcessor);
   }
 
 }
