@@ -339,4 +339,12 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {
         return _searchClient.indices().analyze(request, RequestOptions.DEFAULT).getTokens().stream();
     }
+
+    @Test
+    public void testExactTable() {
+        SearchResult results = search(searchService, "stg_customers");
+        assertEquals(results.getEntities().size(), 1, "Unexpected single urn result for `stg_customers`");
+        assertEquals(results.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)");
+    }
 }
