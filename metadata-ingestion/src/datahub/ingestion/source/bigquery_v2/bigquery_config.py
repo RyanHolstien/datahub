@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     LineageStatefulIngestionConfig,
     ProfilingStatefulIngestionConfig,
@@ -110,6 +110,11 @@ class BigQueryV2Config(
     lineage_sql_parser_use_raw_names: bool = Field(
         default=False,
         description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
+    )
+
+    extract_lineage_from_catalog: bool = Field(
+        default=False,
+        description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/reference/data-lineage/rest",
     )
 
     convert_urns_to_lowercase: bool = Field(
