@@ -606,8 +606,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .all()
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
         .whereColumn(CassandraAspect.ASPECT_COLUMN).in(aspectNamesToLiterals(aspectNames))
-        .whereColumn(CassandraAspect.CREATED_ON_COLUMN).isLessThanOrEqualTo(literal(startTimeMillis))
-        .whereColumn(CassandraAspect.CREATED_ON_COLUMN).isGreaterThan(literal(endTimeMillis))
+        .whereColumn(CassandraAspect.CREATED_ON_COLUMN).isLessThanOrEqualTo(literal(endTimeMillis))
+        .whereColumn(CassandraAspect.CREATED_ON_COLUMN).isGreaterThan(literal(startTimeMillis))
         .allowFiltering()
         .build();
 

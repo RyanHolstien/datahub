@@ -16,6 +16,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
+import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.MySqlDDL;
@@ -25,6 +26,7 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.util.Pair;
+import org.junit.Assert;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -86,24 +88,24 @@ abstract public class TimelineServiceTest<T_AD extends AspectDao> {
         _entityService.getLatestAspectsForUrn(entityUrn, new HashSet<>(Arrays.asList(aspectName)));
 
     Set<ChangeCategory> elements = new HashSet<>();
-    elements.add(ChangeCategory.TECHNICAL_SCHEMA);
+    elements.add(ChangeCategory.DOCUMENTATION);
     List<ChangeTransaction> changes =
         _entityTimelineService.getTimeline(entityUrn, elements, createTestAuditStamp(10).getTime(), 0, null, null,
             false);
-    //Assert.assertEquals(changes.size(), 7);
-    //Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(), ChangeOperation.ADD);
-    //Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(0).getTime().longValue());
-    //Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(), ChangeOperation.MODIFY);
-    //Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(1).getTime().longValue());
+    Assert.assertEquals(changes.size(), 7);
+    Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getOperation(), ChangeOperation.ADD);
+    Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(0).getTime().longValue());
+    Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getOperation(), ChangeOperation.MODIFY);
+    Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(1).getTime().longValue());
 
     changes =
         _entityTimelineService.getTimeline(entityUrn, elements, timestamps.get(4).getTime() - 3000L, 0, null, null,
             false);
-    //Assert.assertEquals(changes.size(), 3);
-    //Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(), ChangeOperation.MODIFY);
-    //Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(4).getTime().longValue());
-    //Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(), ChangeOperation.MODIFY);
-    //Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(5).getTime().longValue());
+    Assert.assertEquals(changes.size(), 3);
+    Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getOperation(), ChangeOperation.MODIFY);
+    Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(4).getTime().longValue());
+    Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getOperation(), ChangeOperation.MODIFY);
+    Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(5).getTime().longValue());
   }
 
   private static AuditStamp createTestAuditStamp(int daysAgo) {
