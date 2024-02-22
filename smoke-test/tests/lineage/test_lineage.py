@@ -956,10 +956,127 @@ def ingest_multipath_metadata(
         wait_for_writes_to_sync()
 
 
+@pytest.mark.dependency(depends=["test_healthchecks"])
+@pytest.fixture(scope="module", autouse=False)
+def ingest_multipath_metadata_cycle(
+        chart_urn_fixture, intermediates_fixture, destination_urn_fixture
+):
+    (url, token) = get_url_and_token()
+    fake_auditstamp = AuditStampClass(
+        time=int(time.time() * 1000),
+        actor="urn:li:corpuser:datahub",
+    )
+    with DataHubGraph(
+            DatahubClientConfig(server=url, token=token, retry_max_times=0)
+    ) as graph:
+        chart_urn = chart_urn_fixture
+        intermediates = intermediates_fixture
+        destination_urn = destination_urn_fixture
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=destination_urn,
+                aspects=[
+                    DatasetPropertiesClass(
+                        name="sales target (us).xlsx.sheet1",
+                    ),
+                ],
+        ):
+            graph.emit_mcp(mcp)
+
+        for intermediate in intermediates:
+            for mcp in MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=intermediate,
+                    aspects=[
+                        DatasetPropertiesClass(
+                            name="intermediate",
+                        ),
+                        UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=destination_urn,
+                                    type="TRANSFORMED",
+                                )
+                            ]
+                        ),
+                    ],
+            ):
+                graph.emit_mcp(mcp)
+
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=chart_urn,
+                aspects=[
+                    ChartInfoClass(
+                        title="chart",
+                        description="chart",
+                        lastModified=ChangeAuditStampsClass(created=fake_auditstamp),
+                        inputEdges=[
+                            EdgeClass(
+                                destinationUrn=intermediate_entity,
+                                sourceUrn=chart_urn,
+                            )
+                            for intermediate_entity in intermediates
+                        ],
+                    )
+                ],
+        ):
+            graph.emit_mcp(mcp)
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=destination_urn,
+                aspects=[
+                    UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=intermediate_entity,
+                                type="TRANSFORMED",
+                            )
+                            for intermediate_entity in intermediates
+                        ]
+                    ),
+                ],
+        ):
+            graph.emit_mcp(mcp)
+        wait_for_writes_to_sync()
+        yield
+        for urn in [chart_urn] + intermediates + [destination_urn]:
+            graph.delete_entity(urn, hard=True)
+        wait_for_writes_to_sync()
+
+
 # TODO: Reenable once fixed
-# @pytest.mark.dependency(depends=["test_healthchecks"])
+#@pytest.mark.dependency(depends=["test_healthchecks"])
 # def test_simple_lineage_multiple_paths(
 #     ingest_multipath_metadata,
+#     chart_urn_fixture,
+#     intermediates_fixture,
+#     destination_urn_fixture,
+# ):
+#     chart_urn = chart_urn_fixture
+#     intermediates = intermediates_fixture
+#     destination_urn = destination_urn_fixture
+#     results = search_across_lineage(
+#         get_default_graph(),
+#         chart_urn,
+#         direction="UPSTREAM",
+#         convert_schema_fields_to_datasets=True,
+#     )
+#     assert destination_urn in [
+#         x["entity"]["urn"] for x in results["searchAcrossLineage"]["searchResults"]
+#     ]
+#     for search_result in results["searchAcrossLineage"]["searchResults"]:
+#         if search_result["entity"]["urn"] == destination_urn:
+#             assert (
+#                 len(search_result["paths"]) == 2
+#             )  # 2 paths from the chart to the dataset
+#             for path in search_result["paths"]:
+#                 assert len(path["path"]) == 3
+#                 assert path["path"][-1]["urn"] == destination_urn
+#                 assert path["path"][0]["urn"] == chart_urn
+#                 assert path["path"][1]["urn"] in intermediates
+#
+#
+# TODO: Reenable once fixed
+#@pytest.mark.dependency(depends=["test_healthchecks"])
+# def test_simple_lineage_multiple_paths_cycle(
+#     ingest_multipath_metadata_cycle,
 #     chart_urn_fixture,
 #     intermediates_fixture,
 #     destination_urn_fixture,
