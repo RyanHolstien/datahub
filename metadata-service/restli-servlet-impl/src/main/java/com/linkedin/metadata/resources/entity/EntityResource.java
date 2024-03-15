@@ -22,6 +22,7 @@ import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.authorization.Disjunctive;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.services.RestrictedService;
+import com.linkedin.data.template.SetMode;
 import io.datahubproject.metadata.context.OperationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
@@ -522,8 +523,20 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags)
       throws URISyntaxException {
 
+<<<<<<< HEAD
     final Authentication auth = AuthenticationContext.getAuthentication();
     if (!isAPIAuthorized(
+=======
+    Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true))
+            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
+
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(
+>>>>>>> ce6d7114377 (feat(lineage): add a parameter to allow limiting the per hop exploration of lineage search)
             auth,
             authorizer,
             LINEAGE, READ)) {
@@ -556,12 +569,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     filter,
                     sortCriterion,
                     start,
+<<<<<<< HEAD
                     count,
                     startTimeMillis,
                     endTimeMillis), entityService);
 
           return result;
           },
+=======
+                    count),
+                _entityService),
+>>>>>>> ce6d7114377 (feat(lineage): add a parameter to allow limiting the per hop exploration of lineage search)
         "searchAcrossRelationships");
   }
 
@@ -594,9 +612,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     OperationContext opContext = OperationContext.asSession(
+<<<<<<< HEAD
                     systemOperationContext, RequestContext.builder().buildRestli(ACTION_SCROLL_ACROSS_LINEAGE, entities), authorizer, auth, true)
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true))
                     .setIncludeRestricted(true));
+=======
+                    systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true))
+            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
+>>>>>>> ce6d7114377 (feat(lineage): add a parameter to allow limiting the per hop exploration of lineage search)
 
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
@@ -608,6 +633,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         input);
 
     return RestliUtil.toTask(
+<<<<<<< HEAD
         () -> {
           LineageScrollResult result = validateLineageScrollResult(lineageSearchService.scrollAcrossLineage(
                   opContext,
@@ -626,6 +652,23 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
           return result;
           },
+=======
+        () ->
+            validateLineageScrollResult(
+                _lineageSearchService.scrollAcrossLineage(
+                        opContext,
+                    urn,
+                    LineageDirection.valueOf(direction),
+                    entityList,
+                    input,
+                    maxHops,
+                    filter,
+                    sortCriterion,
+                    scrollId,
+                    keepAlive,
+                    count),
+                _entityService),
+>>>>>>> ce6d7114377 (feat(lineage): add a parameter to allow limiting the per hop exploration of lineage search)
         "scrollAcrossLineage");
   }
 
