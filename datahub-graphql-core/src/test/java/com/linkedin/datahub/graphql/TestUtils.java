@@ -56,7 +56,6 @@ public class TestUtils {
     OperationContext operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
     Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
-
     return mockContext;
   }
 
