@@ -226,6 +226,7 @@ public class GraphQLEngineFactory {
     args.setFormService(formService);
     args.setRestrictedService(restrictedService);
     args.setDataProductService(dataProductService);
+    args.setGraphService(graphService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());

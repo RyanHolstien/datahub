@@ -53,6 +53,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
@@ -182,6 +183,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSources
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.DataJobRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.EntityRunsResolver;
+import com.linkedin.datahub.graphql.resolvers.lineage.BatchGetRelationshipsResolver;
 import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
@@ -344,6 +346,7 @@ import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -426,6 +429,7 @@ public class GmsGraphQLEngine {
   private final ERModelRelationshipService erModelRelationshipService;
   private final FormService formService;
   private final RestrictedService restrictedService;
+  private final GraphService graphService;
 
   private final FeatureFlags featureFlags;
 
@@ -541,6 +545,7 @@ public class GmsGraphQLEngine {
     this.dataProductService = args.dataProductService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
+    this.graphService = args.graphService;
 
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
     this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
@@ -942,6 +947,7 @@ public class GmsGraphQLEngine {
                                 .setUrn(UrnUtils.getUrn(env.getArgument(URN_FIELD_NAME)))
                                 .setVersionStamp(env.getArgument(VERSION_STAMP_FIELD_NAME))))
                 .dataFetcher("notebook", getResolver(notebookType))
+                .dataFetcher("notebook", getResolver(notebookType))
                 .dataFetcher("corpUser", getResolver(corpUserType))
                 .dataFetcher("corpGroup", getResolver(corpGroupType))
                 .dataFetcher("dashboard", getResolver(dashboardType))
@@ -1016,7 +1022,9 @@ public class GmsGraphQLEngine {
                     "listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
                 .dataFetcher(
                     "browseV2",
-                    new BrowseV2Resolver(this.entityClient, this.viewService, this.formService)));
+                    new BrowseV2Resolver(this.entityClient, this.viewService, this.formService))
+                .dataFetcher("batchGetRelationships", new BatchGetRelationshipsResolver(graphService,
+                    authorizationConfiguration, restrictedService)));
   }
 
   private DataFetcher getEntitiesResolver() {

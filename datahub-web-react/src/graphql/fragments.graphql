@@ -734,8 +734,7 @@ fragment schemaFieldFields on SchemaField {
     }
 }
 
-fragment schemaMetadataFields on SchemaMetadata {
-    aspectVersion
+fragment schemaMetadataFields on Schema {
     createdAt
     datasetUrn
     name

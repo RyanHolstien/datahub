@@ -1480,7 +1480,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     Schema metadata of the dataset, available by version number
     """
-    schemaMetadata(version: Long): SchemaMetadata
+    schemaMetadata(version: Long): SchemaMetadata @deprecated(reason: "Issues a separate SQL Query to resolve per urn, causes a large performance hit. Use latest instead unless you truly need a previous version.")
 
     """
     Editable schema metadata of the dataset
@@ -1582,7 +1582,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     Schema metadata of the dataset
     """
-    schema: Schema @deprecated(reason: "Use `schemaMetadata`")
+    schema: Schema
 
     """
     Deprecated, use properties field instead

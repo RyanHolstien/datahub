@@ -277,7 +277,7 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
 }
 
 fragment datasetSchema on Dataset {
-    schemaMetadata(version: 0) {
+    schema {
         ...schemaMetadataFields
     }
     editableSchemaMetadata {

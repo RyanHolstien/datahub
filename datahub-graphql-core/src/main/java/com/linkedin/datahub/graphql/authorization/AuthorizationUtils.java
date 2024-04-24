@@ -7,6 +7,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
@@ -15,13 +16,16 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.graph.LineageRelationship;
 import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.reflect.ConstructorUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -386,6 +390,27 @@ public class AuthorizationUtils {
         context.getActorUrn(),
         PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
+  public static Set<Urn> getRestrictedUrns(final QueryContext context, final AuthorizationConfiguration
+      authorizationConfiguration, final List<LineageRelationship> relationships, @Nullable final Urn urn) {
+    Set<Urn> restrictedUrns = new HashSet<>();
+    relationships
+        .forEach(
+            rel -> {
+              Urn destination;
+              if (urn != null) {
+                destination = urn;
+              } else {
+                destination = rel.getPaths().get(0).get(0);
+              }
+              if (authorizationConfiguration.getView().isEnabled()
+                  && !AuthorizationUtils.canViewRelationship(
+                  context.getOperationContext(), rel.getEntity(), destination)) {
+                restrictedUrns.add(rel.getEntity());
+              }
+            });
+    return restrictedUrns;
   }
 
   private AuthorizationUtils() {}

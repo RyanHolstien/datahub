@@ -9,10 +9,12 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.EntityLineageScrollResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.LineageScrollResponse;
 import com.linkedin.metadata.graph.RelatedEntities;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
@@ -35,6 +37,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -403,5 +407,19 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageScrollResult batchGetLineage(@Nonnull Map<String, Set<LineageDirection>> lineageDirections,
+      @Nonnull LineageDirection defaultDirection, int pageSize, String scrollId, @Nonnull OperationContext opContext,
+      @Nonnull GraphFilters graphFilters) {
+    LineageScrollResponse lineageResponse =
+        _graphReadDAO.batchGetLineage(lineageDirections, defaultDirection, pageSize, scrollId, opContext);
+    return new EntityLineageScrollResult()
+        .setCount(lineageResponse.getLineageRelationships().size())
+        .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
+        .setNextScrollId(lineageResponse.getNextScrollId())
+        .setTotal(lineageResponse.getTotal());
   }
 }

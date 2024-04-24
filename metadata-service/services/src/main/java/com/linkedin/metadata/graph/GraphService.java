@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -8,6 +9,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -292,6 +294,34 @@ public interface GraphService {
 
     return result;
   }
+
+  /**
+   * Explore one-hop lineage for a batch of urns in specified directions, limited to single hop due to increased complexity
+   */
+  @Nonnull
+  default EntityLineageScrollResult batchGetLineage(
+      @Nonnull Map<String, Set<LineageDirection>> lineageDirections,
+      @Nonnull LineageDirection defaultDirection,
+      int pageSize,
+      String scrollId,
+      @Nonnull OperationContext opContext) {
+    ArrayList<String> typesToFilter = new ArrayList<>();
+    for(String rawUrn : lineageDirections.keySet()) {
+      Urn urn = UrnUtils.getUrn(rawUrn);
+      typesToFilter.addAll(getLineageRegistry()
+          .getEntitiesWithLineageToEntityType(urn.getEntityType())));
+    }
+    return batchGetLineage(lineageDirections, defaultDirection, pageSize, scrollId, opContext,
+        new GraphFilters(typesToFilter));
+  }
+
+  @Nonnull
+  EntityLineageScrollResult batchGetLineage(@Nonnull Map<String, Set<LineageDirection>> lineageDirections,
+      @Nonnull LineageDirection defaultDirection,
+      int pageSize,
+      String scrollId,
+      @Nonnull OperationContext opContext,
+      @Nonnull GraphFilters graphFilters);
 
   /**
    * Removes the given node (if it exists) as well as all edges (incoming and outgoing) of the node.

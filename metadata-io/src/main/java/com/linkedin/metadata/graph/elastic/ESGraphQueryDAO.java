@@ -18,6 +18,7 @@ import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageScrollResponse;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
 import com.linkedin.metadata.query.LineageFlags;
@@ -34,6 +35,7 @@ import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1076,5 +1078,74 @@ public class ESGraphQueryDAO {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     }
+  }
+
+  @WithSpan
+  public LineageScrollResponse batchGetLineage(
+      @Nonnull Map<String, Set<LineageDirection>> lineageDirections,
+      @Nonnull LineageDirection direction,
+      int pageSize,
+      String scrollId,
+      OperationContext opContext) {
+    Map<Urn, LineageRelationship> result = new HashMap<>();
+    long currentTime = System.currentTimeMillis();
+    long remainingTime = graphQueryConfiguration.getTimeoutSeconds() * 1000;
+    boolean exploreMultiplePaths = graphQueryConfiguration.isEnableMultiPathSearch();
+    long timeoutTime = currentTime + remainingTime;
+
+    // Do a Level-order BFS
+    Set<Urn> visitedEntities = ConcurrentHashMap.newKeySet();
+    visitedEntities.addAll(lineageDirections.keySet().stream().map(UrnUtils::getUrn).collect(Collectors.toSet()));
+    Set<Urn> viaEntities = ConcurrentHashMap.newKeySet();
+    Map<Urn, UrnArrayArray> existingPaths = new HashMap<>();
+    List<Urn> currentLevel = ImmutableList.of(entityUrn);
+
+    for (int i = 0; i < maxHops; i++) {
+      if (currentLevel.isEmpty()) {
+        break;
+      }
+
+      if (remainingTime < 0) {
+        log.info(
+            "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning results so far",
+            entityUrn,
+            direction,
+            maxHops);
+        break;
+      }
+
+      // Do one hop on the lineage graph
+      Stream<Urn> intermediateStream =
+          processOneHopLineage(
+              currentLevel,
+              remainingTime,
+              direction,
+              maxHops,
+              graphFilters,
+              visitedEntities,
+              viaEntities,
+              existingPaths,
+              exploreMultiplePaths,
+              result,
+              lineageFlags,
+              i);
+      currentLevel = intermediateStream.collect(Collectors.toList());
+      currentTime = System.currentTimeMillis();
+      remainingTime = timeoutTime - currentTime;
+    }
+    List<LineageRelationship> resultList = new ArrayList<>(result.values());
+    LineageResponse response = new LineageResponse(resultList.size(), resultList);
+
+    List<LineageRelationship> subList;
+    if (offset >= response.getTotal()) {
+      subList = Collections.emptyList();
+    } else {
+      subList =
+          response
+              .getLineageRelationships()
+              .subList(offset, Math.min(offset + count, response.getTotal()));
+    }
+
+    return new LineageResponse(response.getTotal(), subList);
   }
 }

@@ -27,7 +27,7 @@ public class SchemaMetadataMapper {
     return apply(context, input, entityUrn, aspect.getVersion());
   }
 
-  public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
+  public static com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
       @Nullable QueryContext context,
       @Nonnull final SchemaMetadata input,
       final Urn entityUrn,

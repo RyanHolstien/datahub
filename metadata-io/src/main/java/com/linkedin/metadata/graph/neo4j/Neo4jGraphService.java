@@ -11,6 +11,7 @@ import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.EntityLineageScrollResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -906,5 +908,13 @@ public class Neo4jGraphService implements GraphService {
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     throw new IllegalArgumentException("Not implemented");
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageScrollResult batchGetLineage(@Nonnull Map<String, Set<LineageDirection>> lineageDirections,
+      @Nonnull LineageDirection defaultDirection, int pageSize, String scrollId, @Nonnull OperationContext opContext,
+       @Nonnull GraphFilters graphFilters) {
+    throw new UnsupportedOperationException("Batch get lineage not supported for Neo4J");
   }
 }

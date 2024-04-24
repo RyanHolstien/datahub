@@ -109,6 +109,10 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (dataset, dataMap) ->
             dataset.setSchema(SchemaMapper.map(context, new SchemaMetadata(dataMap), entityUrn)));
     mappingHelper.mapToResult(
+        SCHEMA_METADATA_ASPECT_NAME,
+        ((dataset, dataMap) -> dataset.setSchemaMetadataLatest(SchemaMetadataMapper.apply(context, new SchemaMetadata(dataMap), entityUrn, 0)))
+    );
+    mappingHelper.mapToResult(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
     mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
     mappingHelper.mapToResult(

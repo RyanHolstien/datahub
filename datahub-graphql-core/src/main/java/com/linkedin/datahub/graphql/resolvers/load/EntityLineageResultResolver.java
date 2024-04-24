@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.LineageInput;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.mappers.LineageRelationshipMapper;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.query.LineageFlags;
 import graphql.schema.DataFetcher;
@@ -85,17 +86,8 @@ public class EntityLineageResultResolver
                         .setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
                         .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
-            Set<Urn> restrictedUrns = new HashSet<>();
-            entityLineageResult
-                .getRelationships()
-                .forEach(
-                    rel -> {
-                      if (_authorizationConfiguration.getView().isEnabled()
-                          && !AuthorizationUtils.canViewRelationship(
-                              context.getOperationContext(), rel.getEntity(), urn)) {
-                        restrictedUrns.add(rel.getEntity());
-                      }
-                    });
+            Set<Urn> restrictedUrns = AuthorizationUtils.getRestrictedUrns(context, _authorizationConfiguration,
+                entityLineageResult.getRelationships(), urn);
 
             return mapEntityRelationships(context, entityLineageResult, restrictedUrns);
           } catch (Exception e) {
@@ -117,53 +109,8 @@ public class EntityLineageResultResolver
     result.setFiltered(entityLineageResult.getFiltered());
     result.setRelationships(
         entityLineageResult.getRelationships().stream()
-            .map(r -> mapEntityRelationship(context, r, restrictedUrns))
+            .map(r -> LineageRelationshipMapper.mapEntityRelationship(context, r, restrictedUrns, _restrictedService))
             .collect(Collectors.toList()));
-    return result;
-  }
-
-  private LineageRelationship mapEntityRelationship(
-      @Nullable final QueryContext context,
-      final com.linkedin.metadata.graph.LineageRelationship lineageRelationship,
-      final Set<Urn> restrictedUrns) {
-    final LineageRelationship result = new LineageRelationship();
-    if (restrictedUrns.contains(lineageRelationship.getEntity())) {
-      final Restricted restrictedEntity = new Restricted();
-      restrictedEntity.setType(EntityType.RESTRICTED);
-      String restrictedUrnString =
-          _restrictedService.encryptRestrictedUrn(lineageRelationship.getEntity()).toString();
-
-      restrictedEntity.setUrn(restrictedUrnString);
-      result.setEntity(restrictedEntity);
-    } else {
-      final Entity partialEntity = UrnToEntityMapper.map(context, lineageRelationship.getEntity());
-      if (partialEntity != null) {
-        result.setEntity(partialEntity);
-      }
-    }
-    result.setType(lineageRelationship.getType());
-    result.setDegree(lineageRelationship.getDegree());
-    if (lineageRelationship.hasCreatedOn()) {
-      result.setCreatedOn(lineageRelationship.getCreatedOn());
-    }
-    if (lineageRelationship.hasCreatedActor()) {
-      final Urn createdActor = lineageRelationship.getCreatedActor();
-      result.setCreatedActor(UrnToEntityMapper.map(context, createdActor));
-    }
-    if (lineageRelationship.hasUpdatedOn()) {
-      result.setUpdatedOn(lineageRelationship.getUpdatedOn());
-    }
-    if (lineageRelationship.hasUpdatedActor()) {
-      final Urn updatedActor = lineageRelationship.getUpdatedActor();
-      result.setUpdatedActor(UrnToEntityMapper.map(context, updatedActor));
-    }
-    result.setIsManual(lineageRelationship.hasIsManual() && lineageRelationship.isIsManual());
-    if (lineageRelationship.getPaths() != null) {
-      UrnArrayArray paths = lineageRelationship.getPaths();
-      result.setPaths(
-          paths.stream().map(path -> mapPath(context, path)).collect(Collectors.toList()));
-    }
-
     return result;
   }
 }

@@ -78,6 +78,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 value
             }
         }
+        # TODO: GlossaryTerm should have schema
         schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }

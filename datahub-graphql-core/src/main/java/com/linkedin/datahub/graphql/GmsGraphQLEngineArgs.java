@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
@@ -79,6 +80,8 @@ public class GmsGraphQLEngineArgs {
   ERModelRelationshipService erModelRelationshipService;
   FormService formService;
   RestrictedService restrictedService;
+  GraphService graphService;
+
   int graphQLQueryComplexityLimit;
   int graphQLQueryDepthLimit;
 

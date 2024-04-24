@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SiblingGraphService {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final GraphService _graphService;
 
   @Nonnull

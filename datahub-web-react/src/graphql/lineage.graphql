@@ -368,7 +368,7 @@ fragment fullLineageResults on EntityLineageResult {
         entity {
             ...lineageFields
             ... on Dataset {
-                schemaMetadata(version: 0) @include(if: $showColumns) {
+                schema @include(if: $showColumns) {
                     ...schemaMetadataFields
                 }
             }
@@ -408,7 +408,7 @@ fragment entityLineage on Entity {
     ...lineageNodeProperties
     ...canEditLineageFragment
     ... on Dataset {
-        schemaMetadata(version: 0) @include(if: $showColumns) {
+        schema @include(if: $showColumns) {
             ...schemaMetadataFields
         }
         siblings {

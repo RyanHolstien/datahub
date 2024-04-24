@@ -1,4 +1,14 @@
 """
+Query endpoints for lineage
+"""
+type Query {
+    """
+    Queries single hop lineage for a batch of urns
+    """
+    batchGetRelationships(input: BatchGetRelationshipsInput!): BatchRelationshipsResult
+}
+
+"""
 Input required in order to upsert lineage edges
 """
 input UpdateLineageInput {
@@ -24,4 +34,72 @@ input LineageEdge {
     Urn of the destination entity. This urn is upstream of the destinationUrn
     """
     upstreamUrn: String!
+}
+
+input BatchGetRelationshipsInput {
+    """
+    Default direction to pull one hop relationships if not specified in map, if none specified pulls both
+    """
+    defaultDirection: LineageDirection
+
+    """
+    Urns to query and optional properties configuring the query
+    """
+    relationshipInputs: [EntityRelationshipInput!]!
+
+    """
+    Page size, default 100
+    """
+    pageSize: Int
+
+    """
+    Optional Scroll key for additional pages
+    """
+    scrollId: String
+
+    """
+    Flags controlling the lineage query
+    """
+    lineageFlags: LineageFlags
+}
+
+input EntityRelationshipInput {
+    """
+    Urn to query
+    """
+    urn: String!
+
+    """
+    Optional directions, if not specified will use default from parent input
+    """
+    directions: [LineageDirection!]
+}
+
+type BatchRelationshipsResult {
+    """
+    Urn keyed set of relationships where urn is either the source or destination
+    """
+    relationships: [EntityLineageRelationship!]
+
+    """
+    Count of results
+    """
+    count: Int!
+
+    """
+    Scroll ID if there are additional results
+    """
+    nextScrollId: String
+}
+
+type EntityLineageRelationship {
+    """
+    The entity these relationships are sourced from
+    """
+    entity: Entity!
+
+    """
+    List of relationships sourced from this entity
+    """
+    relationships: [LineageRelationship!]
 }

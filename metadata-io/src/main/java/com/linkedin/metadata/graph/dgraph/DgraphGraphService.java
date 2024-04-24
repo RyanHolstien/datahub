@@ -8,7 +8,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.EntityLineageScrollResult;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.RelatedEntity;
@@ -19,6 +22,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import io.datahubproject.metadata.context.OperationContext;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphProto.Mutation;
 import io.dgraph.DgraphProto.NQuad;
@@ -797,5 +801,13 @@ public class DgraphGraphService implements GraphService {
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     throw new IllegalArgumentException("Not implemented");
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageScrollResult batchGetLineage(@Nonnull Map<String, Set<LineageDirection>> lineageDirections,
+      @Nonnull LineageDirection defaultDirection, int pageSize, String scrollId, @Nonnull OperationContext opContext,
+      @Nonnull GraphFilters graphFilters) {
+    throw new UnsupportedOperationException("Batch get lineage not supported for DGraph");
   }
 }
