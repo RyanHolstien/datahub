@@ -72,7 +72,10 @@ public class QueryServiceTest {
     // Ingests both aspects - properties and subjects
     Mockito.verify(mockClient, Mockito.times(2))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            Mockito.eq(false),
+            true);
 
     // Case 2: Null fields provided
     urn =
@@ -88,7 +91,10 @@ public class QueryServiceTest {
     Assert.assertEquals(urn, TEST_QUERY_URN);
     Mockito.verify(mockClient, Mockito.times(4))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            Mockito.eq(false),
+            true);
   }
 
   @Test
@@ -143,7 +149,10 @@ public class QueryServiceTest {
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            Mockito.eq(false),
+            true);
 
     final QueryService service = new QueryService(mockClient);
 
@@ -578,7 +587,10 @@ public class QueryServiceTest {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true))
+                any(OperationContext.class),
+                any(MetadataChangeProposal.class),
+                Mockito.eq(false),
+                true))
         .thenReturn(TEST_QUERY_URN.toString());
     return mockClient;
   }
@@ -599,7 +611,10 @@ public class QueryServiceTest {
 
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true))
+                any(OperationContext.class),
+                any(MetadataChangeProposal.class),
+                Mockito.eq(false),
+                true))
         .thenReturn(queryUrn.toString());
 
     final QueryProperties existingProperties =
@@ -638,7 +653,10 @@ public class QueryServiceTest {
 
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true))
+                any(OperationContext.class),
+                any(MetadataChangeProposal.class),
+                Mockito.eq(false),
+                true))
         .thenReturn(queryUrn.toString());
 
     Mockito.when(

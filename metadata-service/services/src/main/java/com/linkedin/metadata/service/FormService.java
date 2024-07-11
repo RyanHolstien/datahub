@@ -129,7 +129,8 @@ public class FormService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               formUrn, Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, dynamicFormAssignment),
-          false, true);
+          false,
+          true);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
     }
