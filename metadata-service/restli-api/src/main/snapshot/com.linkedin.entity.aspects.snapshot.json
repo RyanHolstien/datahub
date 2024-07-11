@@ -4120,6 +4120,10 @@
           "name" : "async",
           "type" : "string",
           "default" : "unset"
+        }, {
+          "name" : "validate",
+          "type" : "boolean",
+          "default" : "true"
         } ],
         "returns" : "string"
       }, {
@@ -4132,6 +4136,10 @@
           "name" : "async",
           "type" : "string",
           "default" : "unset"
+        }, {
+          "name" : "validate",
+          "type" : "boolean",
+          "default" : "true"
         } ],
         "returns" : "string"
       }, {

@@ -78,7 +78,7 @@ public class ViewServiceTest {
     Assert.assertEquals(urn, TEST_VIEW_URN);
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
 
     // Case 2: Without description
     urn =
@@ -108,7 +108,7 @@ public class ViewServiceTest {
     Assert.assertEquals(urn, TEST_VIEW_URN);
     Mockito.verify(mockClient, Mockito.times(2))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -192,7 +192,7 @@ public class ViewServiceTest {
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
 
     final ViewService service = new ViewService(mockClient);
 
@@ -278,7 +278,7 @@ public class ViewServiceTest {
             Mockito.eq(
                 buildUpdateViewProposal(
                     TEST_VIEW_URN, type, newName, oldDescription, oldDefinition, 0L, 1L)),
-            Mockito.eq(false));
+            Mockito.eq(false), true);
 
     resetUpdateViewMockEntityClient(
         mockClient,
@@ -300,7 +300,7 @@ public class ViewServiceTest {
             Mockito.eq(
                 buildUpdateViewProposal(
                     TEST_VIEW_URN, type, oldName, newDescription, oldDefinition, 0L, 1L)),
-            Mockito.eq(false));
+            Mockito.eq(false), true);
 
     resetUpdateViewMockEntityClient(
         mockClient,
@@ -322,7 +322,7 @@ public class ViewServiceTest {
             Mockito.eq(
                 buildUpdateViewProposal(
                     TEST_VIEW_URN, type, oldName, oldDescription, newDefinition, 0L, 1L)),
-            Mockito.eq(false));
+            Mockito.eq(false), true);
 
     resetUpdateViewMockEntityClient(
         mockClient,
@@ -344,7 +344,7 @@ public class ViewServiceTest {
             Mockito.eq(
                 buildUpdateViewProposal(
                     TEST_VIEW_URN, type, newName, newDescription, newDefinition, 0L, 1L)),
-            Mockito.eq(false));
+            Mockito.eq(false), true);
   }
 
   @Test
@@ -530,7 +530,7 @@ public class ViewServiceTest {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false)))
+                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true))
         .thenReturn(TEST_VIEW_URN.toString());
     return mockClient;
   }
@@ -551,7 +551,7 @@ public class ViewServiceTest {
 
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false)))
+                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true))
         .thenReturn(viewUrn.toString());
 
     final DataHubViewInfo existingInfo =

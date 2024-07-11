@@ -52,7 +52,7 @@ public class CreateTestResolverTest {
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false));
+        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false), true);
     MetadataChangeProposal resultProposal = proposalCaptor.getValue();
     assertEquals(resultProposal.getEntityType(), Constants.TEST_ENTITY_NAME);
     assertEquals(resultProposal.getAspectName(), Constants.TEST_INFO_ASPECT_NAME);
@@ -92,7 +92,7 @@ public class CreateTestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), Mockito.eq(true));
     CreateTestResolver resolver = new CreateTestResolver(mockClient);
 
     // Execute resolver

@@ -48,7 +48,7 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
                 buildMetadataChangeProposalWithUrn(
                     UrnUtils.getUrn(urn), TEST_INFO_ASPECT_NAME, info);
             try {
-              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against Test with urn %s", input), e);

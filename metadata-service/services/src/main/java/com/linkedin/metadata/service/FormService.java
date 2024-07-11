@@ -129,7 +129,7 @@ public class FormService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               formUrn, Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, dynamicFormAssignment),
-          false);
+          false, true);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
     }
@@ -362,7 +362,7 @@ public class FormService extends BaseService {
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
     try {
-      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
+      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException("Failed to submit form response", e);
     }
