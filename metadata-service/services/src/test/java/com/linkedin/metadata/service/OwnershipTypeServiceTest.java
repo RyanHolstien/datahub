@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
@@ -51,7 +51,7 @@ public class OwnershipTypeServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
 
     // Case 2: Without description
     urn = service.createOwnershipType(opContext, "test OwnershipType", null, 0L);
@@ -62,7 +62,7 @@ public class OwnershipTypeServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -86,7 +86,7 @@ public class OwnershipTypeServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
 
     final OwnershipTypeService service = new OwnershipTypeService(mockClient);
 
@@ -119,7 +119,7 @@ public class OwnershipTypeServiceTest {
                 buildUpdateOwnershipTypeProposal(
                     TEST_OWNERSHIP_TYPE_URN, newName, oldDescription, 0L, 1L)),
             Mockito.eq(false),
-            true);
+            eq(true));
 
     resetUpdateOwnershipTypeMockEntityClient(
         mockClient, TEST_OWNERSHIP_TYPE_URN, oldName, oldDescription, TEST_USER_URN, 0L, 0L);
@@ -134,7 +134,7 @@ public class OwnershipTypeServiceTest {
                 buildUpdateOwnershipTypeProposal(
                     TEST_OWNERSHIP_TYPE_URN, oldName, newDescription, 0L, 1L)),
             Mockito.eq(false),
-            true);
+            eq(true));
 
     resetUpdateOwnershipTypeMockEntityClient(
         mockClient, TEST_OWNERSHIP_TYPE_URN, oldName, oldDescription, TEST_USER_URN, 0L, 0L);
@@ -149,7 +149,7 @@ public class OwnershipTypeServiceTest {
                 buildUpdateOwnershipTypeProposal(
                     TEST_OWNERSHIP_TYPE_URN, newName, newDescription, 0L, 1L)),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -315,7 +315,7 @@ public class OwnershipTypeServiceTest {
                 any(OperationContext.class),
                 any(MetadataChangeProposal.class),
                 Mockito.eq(false),
-                true))
+                eq(true)))
         .thenReturn(TEST_OWNERSHIP_TYPE_URN.toString());
     return mockClient;
   }
@@ -337,7 +337,7 @@ public class OwnershipTypeServiceTest {
                 any(OperationContext.class),
                 any(MetadataChangeProposal.class),
                 Mockito.eq(false),
-                true))
+                eq(true)))
         .thenReturn(ownershipTypeUrn.toString());
 
     final OwnershipTypeInfo existingInfo =

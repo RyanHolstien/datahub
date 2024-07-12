@@ -52,7 +52,7 @@ public class CreateTestResolverTest {
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false), true);
+        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false), Mockito.eq(true));
     MetadataChangeProposal resultProposal = proposalCaptor.getValue();
     assertEquals(resultProposal.getEntityType(), Constants.TEST_ENTITY_NAME);
     assertEquals(resultProposal.getAspectName(), Constants.TEST_INFO_ASPECT_NAME);

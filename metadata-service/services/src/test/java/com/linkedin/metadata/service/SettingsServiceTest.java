@@ -90,7 +90,10 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
+                any(OperationContext.class),
+                Mockito.eq(expectedProposal),
+                Mockito.eq(false),
+                Mockito.eq(true)))
         .thenReturn(TEST_USER_URN.toString());
 
     final SettingsService service = new SettingsService(mockClient);
@@ -99,7 +102,10 @@ public class SettingsServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true);
+            any(OperationContext.class),
+            Mockito.eq(expectedProposal),
+            Mockito.eq(false),
+            Mockito.eq(true));
   }
 
   @Test
@@ -116,7 +122,10 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
+                any(OperationContext.class),
+                Mockito.eq(expectedProposal),
+                Mockito.eq(false),
+                eq(true)))
         .thenThrow(new RemoteInvocationException());
 
     final SettingsService service = new SettingsService(mockClient);
@@ -174,7 +183,10 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
+                any(OperationContext.class),
+                Mockito.eq(expectedProposal),
+                Mockito.eq(false),
+                Mockito.eq(true)))
         .thenReturn(GLOBAL_SETTINGS_URN.toString());
 
     final SettingsService service = new SettingsService(mockClient);
@@ -183,7 +195,7 @@ public class SettingsServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true);
+            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), Mockito.eq(true));
   }
 
   @Test
@@ -198,7 +210,10 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
+                any(OperationContext.class),
+                Mockito.eq(expectedProposal),
+                Mockito.eq(false),
+                Mockito.eq(true)))
         .thenThrow(new RemoteInvocationException());
 
     final SettingsService service = new SettingsService(mockClient);
