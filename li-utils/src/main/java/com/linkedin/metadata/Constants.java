@@ -444,5 +444,8 @@ public class Constants {
   // DAO
   public static final long LATEST_VERSION = 0;
 
+  // Headers
+  public static final String SKIP_VALIDATION_HEADER = "X-Skip-Validation";
+
   private Constants() {}
 }
