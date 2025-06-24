@@ -17,11 +17,6 @@ public interface MCLItem extends BatchItem {
   @Nonnull
   MetadataChangeLog getMetadataChangeLog();
 
-  @Override
-  default Urn getUrn() {
-    return getMetadataChangeLog().getEntityUrn();
-  }
-
   @Nonnull
   @Override
   default String getAspectName() {

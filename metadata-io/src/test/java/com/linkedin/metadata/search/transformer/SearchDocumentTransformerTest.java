@@ -7,6 +7,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.test.TestEntitySnapshot;
+import com.datahub.test.TestEntityAspect;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,9 +15,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.CaseFormat;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMapBuilder;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Aspect;
@@ -26,6 +29,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -66,122 +70,175 @@ public class SearchDocumentTransformerTest {
   }
 
   @Test
-  public void testTransform() throws IOException {
+  public void testTransform() throws IOException, RemoteInvocationException, URISyntaxException {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result =
-        searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
-    assertTrue(result.isPresent());
-    ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
-    assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
-    assertEquals(parsedJson.get("doubleField").asDouble(), 100.456);
-    assertEquals(parsedJson.get("keyPart1").asText(), "key");
-    assertFalse(parsedJson.has("keyPart2"));
-    assertEquals(parsedJson.get("keyPart3").asText(), "VALUE_1");
-    assertFalse(parsedJson.has("textField"));
-    assertEquals(parsedJson.get("textFieldOverride").asText(), "test");
-    ArrayNode textArrayField = (ArrayNode) parsedJson.get("textArrayField");
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    // Transform each aspect individually and merge results
+    ObjectNode mergedResult = JsonNodeFactory.instance.objectNode();
+
+    for (TestEntityAspect aspect : snapshot.getAspects()) {
+      RecordTemplate aspectRecord = getAspectValue(aspect);
+      String aspectName = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, aspectRecord.schema().getName());
+      AspectSpec aspectSpec = testEntitySpec.getAspectSpec(aspectName);
+
+      if (aspectSpec != null) {
+        Optional<ObjectNode> aspectResult = searchDocumentTransformer.transformAspect(
+            opContext, snapshot.getUrn(), aspectRecord, aspectSpec, false, AuditStampUtils.createDefaultAuditStamp());
+
+        // Merge the aspect result into the main document
+        aspectResult.ifPresent(jsonNodes -> mergeObjectNodes(mergedResult, jsonNodes));
+      }
+    }
+
+    assertFalse(mergedResult.isEmpty());
+
+    assertEquals(mergedResult.get("urn").asText(), snapshot.getUrn().toString());
+    assertEquals(mergedResult.get("doubleField").asDouble(), 100.456);
+    assertEquals(mergedResult.get("keyPart1").asText(), "key");
+    assertFalse(mergedResult.has("keyPart2"));
+    assertEquals(mergedResult.get("keyPart3").asText(), "VALUE_1");
+    assertFalse(mergedResult.has("textField"));
+    assertEquals(mergedResult.get("textFieldOverride").asText(), "test");
+    ArrayNode textArrayField = (ArrayNode) mergedResult.get("textArrayField");
     assertEquals(textArrayField.size(), 2);
     assertEquals(textArrayField.get(0).asText(), "testArray1");
     assertEquals(textArrayField.get(1).asText(), "testArray2");
-    assertEquals(parsedJson.get("nestedIntegerField").asInt(), 1);
-    assertEquals(parsedJson.get("nestedForeignKey").asText(), snapshot.getUrn().toString());
-    ArrayNode nextedArrayField = (ArrayNode) parsedJson.get("nestedArrayStringField");
+    assertEquals(mergedResult.get("nestedIntegerField").asInt(), 1);
+    assertEquals(mergedResult.get("nestedForeignKey").asText(), snapshot.getUrn().toString());
+    ArrayNode nextedArrayField = (ArrayNode) mergedResult.get("nestedArrayStringField");
     assertEquals(nextedArrayField.size(), 2);
     assertEquals(nextedArrayField.get(0).asText(), "nestedArray1");
     assertEquals(nextedArrayField.get(1).asText(), "nestedArray2");
-    ArrayNode browsePaths = (ArrayNode) parsedJson.get("browsePaths");
+    ArrayNode browsePaths = (ArrayNode) mergedResult.get("browsePaths");
     assertEquals(browsePaths.size(), 2);
     assertEquals(browsePaths.get(0).asText(), "/a/b/c");
     assertEquals(browsePaths.get(1).asText(), "d/e/f");
-    assertEquals(parsedJson.get("feature1").asInt(), 2);
-    assertEquals(parsedJson.get("feature2").asInt(), 1);
-    JsonNode browsePathV2 = (JsonNode) parsedJson.get("browsePathV2");
+    assertEquals(mergedResult.get("feature1").asInt(), 2);
+    assertEquals(mergedResult.get("feature2").asInt(), 1);
+    JsonNode browsePathV2 = (JsonNode) mergedResult.get("browsePathV2");
     assertEquals(browsePathV2.asText(), "␟levelOne␟levelTwo");
     assertEquals(
-        parsedJson.get("esObjectFieldBoolean").get("key1").getNodeType(),
+        mergedResult.get("esObjectFieldBoolean").get("key1").getNodeType(),
         JsonNodeFactory.instance.booleanNode(true).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldLong").get("key1").getNodeType(),
+        mergedResult.get("esObjectFieldLong").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(1L).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldFloat").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldFloat").get("key2").getNodeType(),
         JsonNodeFactory.instance.numberNode(2.0f).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldDouble").get("key1").getNodeType(),
+        mergedResult.get("esObjectFieldDouble").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(1.2).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldInteger").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldInteger").get("key2").getNodeType(),
         JsonNodeFactory.instance.numberNode(456).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldBoolean").get("key2").getNodeType(),
         JsonNodeFactory.instance.booleanNode(false).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldLong").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldLong").get("key2").getNodeType(),
         JsonNodeFactory.instance.numberNode(2L).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(),
+        mergedResult.get("esObjectFieldFloat").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldDouble").get("key2").getNodeType(),
         JsonNodeFactory.instance.numberNode(2.4).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
+        mergedResult.get("esObjectFieldInteger").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(123).getNodeType());
-    assertEquals(parsedJson.get("esObjectField").get("key3").asText(), "");
+    assertEquals(mergedResult.get("esObjectField").get("key3").asText(), "");
     assertEquals(
-        parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldBoolean").get("key2").getNodeType(),
         JsonNodeFactory.instance.booleanNode(false).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldLong").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldLong").get("key2").getNodeType(),
         JsonNodeFactory.instance.numberNode(2L).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(),
+        mergedResult.get("esObjectFieldFloat").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(),
+        mergedResult.get("esObjectFieldDouble").get("key2").getNodeType(),
         JsonNodeFactory.instance.numberNode(2.4).getNodeType());
     assertEquals(
-        parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
+        mergedResult.get("esObjectFieldInteger").get("key1").getNodeType(),
         JsonNodeFactory.instance.numberNode(123).getNodeType());
   }
 
   @Test
-  public void testTransformForDelete() throws IOException {
+  public void testTransformForDelete() throws IOException, RemoteInvocationException, URISyntaxException {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result =
-        searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, true);
-    assertTrue(result.isPresent());
-    ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
-    assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
-    parsedJson.get("keyPart1").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("keyPart3").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("textFieldOverride").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("foreignKey").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("textArrayField").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("browsePaths").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("nestedArrayStringField").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("nestedIntegerField").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("feature1").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("feature2").getNodeType().equals(JsonNodeType.NULL);
-    parsedJson.get("doubleField").getNodeType().equals(JsonNodeType.NULL);
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    // Transform each aspect individually with forDelete=true and merge results
+    ObjectNode mergedResult = JsonNodeFactory.instance.objectNode();
+
+    for (TestEntityAspect aspect : snapshot.getAspects()) {
+      RecordTemplate aspectRecord = getAspectValue(aspect);
+      String aspectName = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, aspectRecord.schema().getName());
+      AspectSpec aspectSpec = testEntitySpec.getAspectSpec(aspectName);
+
+      if (aspectSpec != null) {
+        Optional<ObjectNode> aspectResult = searchDocumentTransformer.transformAspect(
+            opContext, snapshot.getUrn(), aspectRecord, aspectSpec, true, AuditStampUtils.createDefaultAuditStamp());
+
+        // Merge the aspect result into the main document
+        aspectResult.ifPresent(jsonNodes -> mergeObjectNodes(mergedResult, jsonNodes));
+      }
+    }
+
+    assertFalse(mergedResult.isEmpty());
+
+    assertEquals(mergedResult.get("urn").asText(), snapshot.getUrn().toString());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("keyPart1").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("keyPart3").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("textFieldOverride").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("nestedForeignKey").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("textArrayField").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("browsePaths").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("nestedArrayStringField").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("nestedIntegerField").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("feature1").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("feature2").getNodeType());
+    assertEquals(JsonNodeType.NULL, mergedResult.get("doubleField").getNodeType());
   }
 
   @Test
-  public void testTransformMaxFieldValue() throws IOException {
+  public void testTransformMaxFieldValue() throws IOException, RemoteInvocationException, URISyntaxException {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 5);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result =
-        searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
-    assertTrue(result.isPresent());
-    ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    // Transform each aspect individually and merge results
+    ObjectNode mergedResult = JsonNodeFactory.instance.objectNode();
+
+    for (TestEntityAspect aspect : snapshot.getAspects()) {
+      RecordTemplate aspectRecord = getAspectValue(aspect);
+      String aspectName = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, aspectRecord.schema().getName());
+      AspectSpec aspectSpec = testEntitySpec.getAspectSpec(aspectName);
+
+      if (aspectSpec != null) {
+        Optional<ObjectNode> aspectResult = searchDocumentTransformer.transformAspect(
+            opContext, snapshot.getUrn(), aspectRecord, aspectSpec, false, AuditStampUtils.createDefaultAuditStamp());
+
+        if (aspectResult.isPresent()) {
+          // Merge the aspect result into the main document
+          mergeObjectNodes(mergedResult, aspectResult.get());
+        }
+      }
+    }
+
+    assertTrue(mergedResult.size() > 0);
+    ObjectNode parsedJson = mergedResult;
 
     assertEquals(
         parsedJson.get("customProperties"),
@@ -189,12 +246,31 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123").add(""));
 
+    // Test with higher max value length
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
     snapshot = TestEntityUtil.getSnapshot();
     testEntitySpec = TestEntitySpecBuilder.getSpec();
-    result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
-    assertTrue(result.isPresent());
-    parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
+
+    mergedResult = JsonNodeFactory.instance.objectNode();
+
+    for (TestEntityAspect aspect : snapshot.getAspects()) {
+      RecordTemplate aspectRecord = getAspectValue(aspect);
+      String aspectName = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, aspectRecord.schema().getName());
+      AspectSpec aspectSpec = testEntitySpec.getAspectSpec(aspectName);
+
+      if (aspectSpec != null) {
+        Optional<ObjectNode> aspectResult = searchDocumentTransformer.transformAspect(
+            opContext, snapshot.getUrn(), aspectRecord, aspectSpec, false, AuditStampUtils.createDefaultAuditStamp());
+
+        if (aspectResult.isPresent()) {
+          // Merge the aspect result into the main document
+          mergeObjectNodes(mergedResult, aspectResult.get());
+        }
+      }
+    }
+
+    assertTrue(mergedResult.size() > 0);
+    parsedJson = mergedResult;
 
     assertEquals(
         parsedJson.get("customProperties"),
@@ -215,12 +291,53 @@ public class SearchDocumentTransformerTest {
             .add("0123456789"));
   }
 
+  private RecordTemplate getAspectValue(TestEntityAspect aspect) {
+    RecordTemplate aspectRecord;
+    if (aspect.isSearchFeatures()) {
+      aspectRecord = aspect.getSearchFeatures();
+    } else if (aspect.isTestBrowsePaths()) {
+      aspectRecord = aspect.getTestBrowsePaths();
+    } else if (aspect.isTestEntityInfo()) {
+      aspectRecord = aspect.getTestEntityInfo();
+    } else if (aspect.isTestEntityKey()) {
+      aspectRecord = aspect.getTestEntityKey();
+    } else if (aspect.isTestBrowsePathsV2()) {
+      aspectRecord = aspect.getTestBrowsePathsV2();
+    } else {
+      throw new RuntimeException();
+    }
+    return aspectRecord;
+  }
+
+  /**
+   * Helper method to merge two ObjectNodes
+   */
+  private void mergeObjectNodes(ObjectNode target, ObjectNode source) {
+    source.fields().forEachRemaining(entry -> {
+      String key = entry.getKey();
+      JsonNode value = entry.getValue();
+
+      if (target.has(key)) {
+        // If both nodes have the same key, we need to merge them
+        JsonNode targetValue = target.get(key);
+        if (targetValue.isObject() && value.isObject()) {
+          mergeObjectNodes((ObjectNode) targetValue, (ObjectNode) value);
+        } else {
+          // For non-object values, the source value overwrites the target
+          target.set(key, value);
+        }
+      } else {
+        target.set(key, value);
+      }
+    });
+  }
+
   /**
    *
    *
    * <ul>
    *   <li>{@link SearchDocumentTransformer#setSearchableRefValue(OperationContext,
-   *       SearchableRefFieldSpec, List, ObjectNode, Boolean ) }
+   *       SearchableRefFieldSpec, List, ObjectNode, Boolean, com.linkedin.common.AuditStamp ) }
    * </ul>
    */
   @Test
@@ -415,7 +532,7 @@ public class SearchDocumentTransformerTest {
         false,
         AuditStampUtils.createDefaultAuditStamp());
     assertTrue(searchDocument.has("refEntityUrns"));
-    assertTrue(searchDocument.get("refEntityUrns").getNodeType().equals(JsonNodeType.NULL));
+    assertEquals(JsonNodeType.NULL, searchDocument.get("refEntityUrns").getNodeType());
   }
 
   @Test

@@ -72,36 +72,6 @@ public class SearchDocumentTransformer {
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
-  public Optional<String> transformSnapshot(
-      final RecordTemplate snapshot, final EntitySpec entitySpec, final Boolean forDelete) {
-    final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
-        FieldExtractor.extractFieldsFromSnapshot(
-                snapshot, entitySpec, AspectSpec::getSearchableFieldSpecs, maxValueLength)
-            .entrySet()
-            // Delete expects urn to be preserved
-            .stream()
-            .filter(
-                entry ->
-                    !forDelete
-                        || !"urn".equals(entry.getKey().getSearchableAnnotation().getFieldName()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
-        FieldExtractor.extractFieldsFromSnapshot(
-            snapshot, entitySpec, AspectSpec::getSearchScoreFieldSpecs, maxValueLength);
-    if (extractedSearchableFields.isEmpty() && extractedSearchScoreFields.isEmpty()) {
-      return Optional.empty();
-    }
-    final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-    searchDocument.put("urn", snapshot.data().get("urn").toString());
-    extractedSearchableFields.forEach(
-        (key, value) ->
-            setSearchableValue(
-                key, value, searchDocument, forDelete, AuditStampUtils.createDefaultAuditStamp()));
-    extractedSearchScoreFields.forEach(
-        (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
-    return Optional.of(searchDocument.toString());
-  }
-
   public static ObjectNode withSystemCreated(
       ObjectNode searchDocument,
       @Nonnull ChangeType changeType,
@@ -166,9 +136,9 @@ public class SearchDocumentTransformer {
 
     Optional<ObjectNode> result = Optional.empty();
 
-    if (!extractedSearchableFields.isEmpty()
+    if ((!extractedSearchableFields.isEmpty()
         || !extractedSearchScoreFields.isEmpty()
-        || !extractedSearchRefFields.isEmpty()) {
+        || !extractedSearchRefFields.isEmpty())) {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
 

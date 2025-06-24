@@ -39,6 +39,7 @@ public class MCLItemImpl implements MCLItem {
   // derived
   private final EntitySpec entitySpec;
   private final AspectSpec aspectSpec;
+  private final Urn urn;
 
   public static class MCLItemImplBuilder {
 
@@ -111,7 +112,8 @@ public class MCLItemImpl implements MCLItem {
           aspects.getFirst(),
           aspects.getSecond(),
           this.entitySpec,
-          this.aspectSpec);
+          this.aspectSpec,
+          urn);
     }
 
     private MCLItemImplBuilder entitySpec(EntitySpec entitySpec) {
