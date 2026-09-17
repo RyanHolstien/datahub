@@ -143,6 +143,6 @@ public class CombineTransactionsByTimestampTest {
    * combineTransactionsByTimestamp which doesn't use any instance fields.
    */
   private TimelineServiceImpl createMinimalInstance() {
-    return new TimelineServiceImpl(null, null);
+    return new TimelineServiceImpl(null, null, 50);
   }
 }

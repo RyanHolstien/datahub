@@ -80,12 +80,17 @@ public class TimelineServiceImpl implements TimelineService {
   private final AspectDao _aspectDao;
   private final EntityChangeEventGeneratorFactory _entityChangeEventGeneratorFactory;
   private final EntityRegistry _entityRegistry;
+  private final int _maxVersionsPerAspect;
   private final HashMap<String, HashMap<ChangeCategory, Set<String>>>
       entityTypeElementAspectRegistry = new HashMap<>();
 
-  public TimelineServiceImpl(@Nonnull AspectDao aspectDao, @Nonnull EntityRegistry entityRegistry) {
+  public TimelineServiceImpl(
+      @Nonnull AspectDao aspectDao,
+      @Nonnull EntityRegistry entityRegistry,
+      int maxVersionsPerAspect) {
     this._aspectDao = aspectDao;
     _entityRegistry = entityRegistry;
+    this._maxVersionsPerAspect = maxVersionsPerAspect;
 
     // TODO: Simplify this structure.
     // TODO: Load up from yaml file
@@ -588,7 +593,7 @@ public class TimelineServiceImpl implements TimelineService {
             .collect(Collectors.toSet());
     List<EntityAspect> aspectsInRange =
         this._aspectDao.getAspectsInRange(
-            opContext, urn, fullAspectNames, startTimeMillis, endTimeMillis);
+            opContext, urn, fullAspectNames, startTimeMillis, endTimeMillis, _maxVersionsPerAspect);
 
     return processAspectTimeline(
         opContext,
@@ -603,9 +608,7 @@ public class TimelineServiceImpl implements TimelineService {
   /**
    * Simplified timeline query that delegates to the time-range overload with a full time window
    * (startTime=0, endTime=0 which resolves to epoch → now) and caps the result to {@code
-   * maxChangeTransactions}. DataHub's retention policy already limits each (urn, aspect) pair to a
-   * small number of versions (default 20), so the result set is inherently bounded without needing
-   * a SQL LIMIT clause.
+   * maxChangeTransactions}.
    */
   @Nonnull
   @Override

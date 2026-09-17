@@ -47,7 +47,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
             new PlainAspectTableResolver(),
             new PassThroughScopedTransactionFactory(server));
     _aspectDao.setConnectionValidated(true);
-    _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
+    _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry, 50);
     _mockProducer = mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);

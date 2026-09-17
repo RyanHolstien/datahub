@@ -29,7 +29,7 @@ public class TimelineServiceImplGetTimelineForUrnsTest {
   private static final Set<ChangeCategory> CATEGORIES = Set.of(ChangeCategory.VERSIONING);
 
   private static TimelineServiceImpl newSpy() {
-    return spy(new TimelineServiceImpl(mock(AspectDao.class), mock(EntityRegistry.class)));
+    return spy(new TimelineServiceImpl(mock(AspectDao.class), mock(EntityRegistry.class), 50));
   }
 
   private static ChangeTransaction txn(long timestamp, String actor) {

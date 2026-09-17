@@ -797,8 +797,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
-      long endTimeMillis) {
+      long endTimeMillis,
+      int maxVersionsPerAspect) {
     validateConnection();
+    int maxRows = maxVersionsPerAspect * aspectNames.size();
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
             .all()
@@ -810,11 +812,11 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .isGreaterThanOrEqualTo(literal(startTimeMillis))
             .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
             .isLessThan(literal(endTimeMillis))
+            .limit(maxRows)
             .allowFiltering()
             .build();
 
     ResultSet rs = readSession(opContext, false).execute(ss);
-
     return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
   }
 

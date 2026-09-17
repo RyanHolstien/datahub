@@ -6,6 +6,7 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.TimelineServiceImpl;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -13,11 +14,14 @@ import org.springframework.context.annotation.DependsOn;
 @Configuration
 public class TimelineServiceFactory {
 
+  @Value("${timeline.maxVersionsPerAspect:50}")
+  private int maxVersionsPerAspect;
+
   @Bean(name = "timelineService")
   @DependsOn({"entityAspectDao", "entityService", "entityRegistry"})
   @Nonnull
   protected TimelineService timelineService(
       @Qualifier("entityAspectDao") AspectDao aspectDao, EntityRegistry entityRegistry) {
-    return new TimelineServiceImpl(aspectDao, entityRegistry);
+    return new TimelineServiceImpl(aspectDao, entityRegistry, maxVersionsPerAspect);
   }
 }

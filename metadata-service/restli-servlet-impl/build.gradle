@@ -15,7 +15,8 @@ sourceSets {
 idea {
   module {
     testSources.from(file('src/integTest/java'))
-    scopes.TEST.plus += [ configurations.integTestCompileOnly ]
+    // Gradle 9 forbids resolving *CompileOnly buckets; use the resolvable classpath instead
+    scopes.TEST.plus += [ configurations.integTestCompileClasspath ]
   }
 }
 

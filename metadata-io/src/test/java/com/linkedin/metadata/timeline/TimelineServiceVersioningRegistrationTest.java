@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 public class TimelineServiceVersioningRegistrationTest {
 
   private static TimelineServiceImpl newService() {
-    return new TimelineServiceImpl(mock(AspectDao.class), mock(EntityRegistry.class));
+    return new TimelineServiceImpl(mock(AspectDao.class), mock(EntityRegistry.class), 50);
   }
 
   @Test

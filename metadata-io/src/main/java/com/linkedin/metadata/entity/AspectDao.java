@@ -69,7 +69,8 @@ public interface AspectDao {
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
-      long endTimeMillis);
+      long endTimeMillis,
+      int maxVersionsPerAspect);
 
   /**
    * @param urn urn to fetch

@@ -465,6 +465,9 @@ systemMetadataService:
       apiDefault: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
       strict: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
+timeline:
+  maxVersionsPerAspect: ${TIMELINE_MAX_VERSIONS_PER_ASPECT:50}
+
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
   # Priority is given to the `path` setting above (outside jar)

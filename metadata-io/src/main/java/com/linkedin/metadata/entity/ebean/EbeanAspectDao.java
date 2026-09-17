@@ -2188,11 +2188,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
-      long endTimeMillis) {
+      long endTimeMillis,
+      int maxVersionsPerAspect) {
     validateConnection();
     return txnFactory.runInScope(
         opContext,
         () -> {
+          int maxRows = maxVersionsPerAspect * aspectNames.size();
           List<EbeanAspectV2> ebeanAspects =
               primaryStorageResolver
                   .resolveEbean(opContext, false)
@@ -2205,6 +2207,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                       EbeanAspectV2.CREATED_ON_COLUMN,
                       new Timestamp(startTimeMillis),
                       new Timestamp(endTimeMillis))
+                  .orderBy()
+                  .desc(EbeanAspectV2.CREATED_ON_COLUMN)
+                  .setMaxRows(maxRows)
                   .findList();
           return ebeanAspects.stream()
               .map(EbeanAspectV2::toEntityAspect)

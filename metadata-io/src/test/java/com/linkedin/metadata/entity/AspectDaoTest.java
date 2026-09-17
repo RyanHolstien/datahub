@@ -442,7 +442,8 @@ public class AspectDaoTest {
         @Nonnull Urn urn,
         Set<String> aspectNames,
         long startTimeMillis,
-        long endTimeMillis) {
+        long endTimeMillis,
+        int maxVersionsPerAspect) {
       return null;
     }
 
